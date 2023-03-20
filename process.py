@@ -3,27 +3,41 @@ import numpy as np
 import pandas as pd
 
 
-def look_forward(sent, ind, start=None, end=None):
+def look_forward(sent, ind, start=None, end=None, include=True):
     ngrams = []
+    offset = None
+    if include:
+        offset = 0
+    elif start is not None:
+        offset = len(start)
+    elif end is not None:
+        offset = len(end)
     for length in range(1, len(sent) - ind):
         if start is None and end is None:
             ngrams.append(sent[ind+1: ind+length+1])
         elif start is not None and len(start) <= length and sent[ind+1: ind+len(start)+1] == start:
-            ngrams.append(sent[ind+1: ind+length+1])
+            ngrams.append(sent[ind+1+offset: ind+length+1])
         elif end is not None and len(end) <= length and sent[ind+length+1-len(end):ind+length+1] == end:
-            ngrams.append(sent[ind+1: ind+length+1])
+            ngrams.append(sent[ind+1: ind+length+1-offset])
     return ngrams
 
 
-def look_backward(sent, ind, start=None, end=None):
+def look_backward(sent, ind, start=None, end=None, include=True):
     ngrams = []
+    offset = None
+    if include:
+        offset = 0
+    elif start is not None:
+        offset = len(start)
+    elif end is not None:
+        offset = len(end)
     for length in range(1, ind+1):
         if start is None and end is None:
-            ngrams.append(sent[ind-length: ind])
+            ngrams.append(sent[ind - length: ind])
         elif start is not None and len(start) <= length and sent[ind-length: ind-length+len(start)] == start:
-            ngrams.append(sent[ind - length: ind])
+            ngrams.append(sent[ind - length + offset: ind])
         elif end is not None and len(end) <= length and sent[ind-len(end):ind] == end:
-            ngrams.append(sent[ind - length: ind])
+            ngrams.append(sent[ind - length: ind - offset])
     return ngrams
 
 
@@ -263,55 +277,61 @@ for i, award in enumerate(awards):
             if award_str == sent_str:
                 # AWARD goes to xxx
                 if j + len(award) + 2 < len(sent) and sent[j + len(award)] == 'goes' and sent[j + len(award) + 1] == 'to':
-                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['goes', 'to'])[2:]
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['goes', 'to'], include=False)
+                # AWARD awarded to xxx
+                elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'awarded' and sent[j + len(award) + 1] == 'to':
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['awarded', 'to'], include=False)
                 # AWARD is awarded to xxx
                 elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'is' and sent[j + len(award) + 1] == 'awarded' and sent[j + len(award) + 2] == 'to':
-                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['is', 'awarded', 'to'])[3:]
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['is', 'awarded', 'to'], include=False)
+                # AWARD #goldenglobe awarded to xxx
+                elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'goldenglobe' and sent[j + len(award) + 1] == 'awarded' and sent[j + len(award) + 2] == 'to':
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['goldenglobe', 'awarded', 'to'], include=False)
                 # AWARD: xxx
                 elif j + len(award) < len(sent):
                     ca_set_winner += look_forward(sent, j + len(award) - 1)
                 # winner for AWARD is xxx
-                elif j >= 2 and sent[j - 1] == 'for' and sent[j - 2] == 'winner' and len(sent) > j + len(award) + 1 and sent[j + len(award)] == 'is':
-                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['is'])[1:]
+                elif j > 2 and sent[j - 1] == 'for' and sent[j - 2] == 'winner' and len(sent) > j + len(award) + 1 and sent[j + len(award)] == 'is':
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['is'], include=False)
                 # AWARD is xxx
                 elif len(sent) > j + len(award) and sent[j + len(award)] == 'is':
-                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['is'])[1:]
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['is'], include=False)
                 # someone presents AWARD to xxx
-                elif j >= 2 and len(sent) > j + len(award) and sent[j + len(award)] == 'to' and sent[j - 1] == 'presents':
-                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['to'])[1:]
+                elif j > 2 and len(sent) > j + len(award) and sent[j + len(award)] == 'to' and sent[j - 1] == 'presents':
+                    ca_set_winner += look_forward(sent, j + len(award) - 1, start=['to'], include=False)
                 # xxx for AWARD
-                elif j >= 2 and sent[j - 1] == 'for':
-                    ca_set_winner += look_backward(sent, j, end=['for'])[:-1]
+                elif j > 1 and sent[j - 1] == 'for':
+                    ca_set_winner += look_backward(sent, j, end=['for'], include=False)
                 # xxx wins/won/has won AWARD
-                elif j >= 2 and sent[j - 1] == 'wins':
-                    ca_set_winner += look_backward(sent, j, end=['wins'])[:-1]
-                elif j >= 2 and sent[j - 1] == 'won':
-                    ca_set_winner += look_backward(sent, j, end=['won'])[:-1]
-                elif j >= 3 and sent[j - 1] == 'won' and sent[j - 2] == 'has':
-                    ca_set_winner += look_backward(sent, j, end=['has', 'won'])[:-2]
+                elif j > 1 and sent[j - 1] == 'wins':
+                    ca_set_winner += look_backward(sent, j, end=['wins'], include=False)
+                elif j > 1 and sent[j - 1] == 'won':
+                    ca_set_winner += look_backward(sent, j, end=['won'], include=False)
+                elif j > 2 and sent[j - 1] == 'won' and sent[j - 2] == 'has':
+                    ca_set_winner += look_backward(sent, j, end=['has', 'won'], include=False)
                 # xxx wins/won the #goldenglobe for AWARD
-                elif j >= 4 and sent[j - 1] == 'for' and sent[j - 2] == 'goldenglobe' and sent[j - 3] == 'the' and sent[j - 4] == 'wins':
-                    ca_set_winner += look_backward(sent, j, end=['wins', 'the', 'goldenglobe', 'for'])[:-4]
-                elif j >= 4 and sent[j - 1] == 'for' and sent[j - 2] == 'goldenglobe' and sent[j - 3] == 'the' and sent[j - 4] == 'won':
-                    ca_set_winner += look_backward(sent, j, end=['won', 'the', 'goldenglobe', 'for'])[:-4]
+                elif j > 4 and sent[j - 1] == 'for' and sent[j - 2] == 'goldenglobe' and sent[j - 3] == 'the' and sent[j - 4] == 'wins':
+                    ca_set_winner += look_backward(sent, j, end=['wins', 'the', 'goldenglobe', 'for'], include=False)
+                elif j > 4 and sent[j - 1] == 'for' and sent[j - 2] == 'goldenglobe' and sent[j - 3] == 'the' and sent[j - 4] == 'won':
+                    ca_set_winner += look_backward(sent, j, end=['won', 'the', 'goldenglobe', 'for'], include=False)
                 # xxx - #goldenglobe winner for AWARD
-                elif j >= 2 and sent[j - 1] == 'for' and sent[j - 2] == 'winner':
-                    ca_set_winner += look_backward(sent, j, end=['goldenglobe', 'winner', 'for'])[:-3]
+                elif j > 3 and sent[j - 1] == 'for' and sent[j - 2] == 'winner':
+                    ca_set_winner += look_backward(sent, j, end=['goldenglobe', 'winner', 'for'], include=False)
                 # congrat/congrats to xxx for her/his golden globe win as AWARD
                 elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'his' and sent[j - 6] == 'for':
-                    ca_set_winner += look_backward(sent, j, end=['for', 'his', 'golden', 'globe', 'win', 'as'])[:-6]
+                    ca_set_winner += look_backward(sent, j, end=['for', 'his', 'golden', 'globe', 'win', 'as'], include=False)
                 elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'her' and sent[j - 6] == 'for':
-                    ca_set_winner += look_backward(sent, j, end=['for', 'her', 'golden', 'globe', 'win', 'as'])[:-6]
+                    ca_set_winner += look_backward(sent, j, end=['for', 'her', 'golden', 'globe', 'win', 'as'], include=False)
 
                 # xxxx is presenting AWARD
-                if j >= 2 and sent[j - 1] == 'presenting' and sent[j - 2] == 'is':
-                    ca_set_presenter += look_backward(sent, j, end=['is', 'presenting'])[:-2]
+                if j > 2 and sent[j - 1] == 'presenting' and sent[j - 2] == 'is':
+                    ca_set_presenter += look_backward(sent, j, end=['is', 'presenting'], include=False)
                 # someone presents AWARD to xxx
-                elif j >= 1 and (sent[j - 1] == 'presents' or sent[j - 1] == 'presented'):
-                    ca_set_presenter += look_backward(sent, j, end=['presents'])[:-1]
+                elif j > 1 and (sent[j - 1] == 'presents' or sent[j - 1] == 'presented'):
+                    ca_set_presenter += look_backward(sent, j, end=['presents'], include=False)
                 # someone presents for AWARD
-                elif j >= 2 and sent[j - 2] == 'presents' and sent[j - 1] == 'for':
-                    ca_set_presenter += look_backward(sent, j, end=['presents', 'for'])[:-2]
+                elif j > 2 and sent[j - 2] == 'presents' and sent[j - 1] == 'for':
+                    ca_set_presenter += look_backward(sent, j, end=['presents', 'for'], include=False)
 
     '''# take intersection of all
     while [] in ca_set_winner:
