@@ -13,12 +13,14 @@ def clean(data):
         new_sent = []
         for i, word in enumerate(sent):
             # not good for extracting winners
-            '''if word.startswith('#'):
-                # store hashtags separately
-                tweet['hashtag'].append(word[1:].lower())'''
             if word.startswith('#'):
                 # store hashtags separately
-                new_sent.append(word[1:].lower())
+                tweet['hashtag'].append(word[1:].lower())
+                '''if word.startswith('#'):
+                # store hashtags separately
+                new_sent.append(word[1:].lower())'''
+            elif word.startswith('http'):
+                continue
             elif word == '&amp;':
                 # replace & with and
                 new_sent.append('and')
