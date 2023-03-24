@@ -33,8 +33,8 @@ def clean(data):
                 new_sent.append(word.lower())
         tweet['text'] = unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent)))
 
-clean(gg2013)
 
+clean(gg2013)
 
 awards = [['best', 'motion', 'picture', 'drama'],
           ['best', 'motion', 'picture', 'comedy', 'or', 'musical'],
