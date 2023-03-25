@@ -11,7 +11,6 @@ proteins = {'beef': {'vegetarian': False, 'healthy': False, 'cuisine': None},
             'trout': {'vegetarian': False, 'healthy': True, 'cuisine': None},
             'shrimp': {'vegetarian': False, 'healthy': True, 'cuisine': None},
             # vegetarian options
-            'egg': {'vegetarian': True, 'healthy': True, 'cuisine': None},
             'tofu': {'vegetarian': True, 'healthy': True, 'cuisine': None},
             'Beyond Beef': {'vegetarian': True, 'healthy': True, 'cuisine': None},
             'Beyond Chicken': {'vegetarian': True, 'healthy': True, 'cuisine': None},
@@ -50,6 +49,7 @@ carbohydrates = {'white rice': {'vegetarian': True, 'healthy': False, 'cuisine':
                  'rice': {'vegetarian': True, 'healthy': False, 'cuisine': None},
                  'flour': {'vegetarian': True, 'healthy': False, 'cuisine': None},
                  'whole-grain flour': {'vegetarian': True, 'healthy': True, 'cuisine': None},
+                 'sticky rice flour': {'vegetarian': True, 'healthy': True, 'cuisine': 'chinese'},
                  'noodles': {'vegetarian': True, 'healthy': True, 'cuisine': None},
                  'whole-grain noodles': {'vegetarian': True, 'healthy': True, 'cuisine': None},
                  'corn tortillas': {'vegetarian': True, 'healthy': True, 'cuisine': None},
@@ -78,6 +78,7 @@ dairies = {'milk': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lact
            'fontina cheese': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lactose': True},
            'feta cheese': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': True},
            'cottage cheese': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': True},
+           'mascarpone cheese': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': True},
            'swiss cheese': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': False},
            'provolone cheese': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': False},
            'gouda cheese': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lactose': False},
@@ -86,7 +87,11 @@ dairies = {'milk': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lact
            'cream cheese': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lactose': True},
            'cheddar cheese': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': False},
            'american cheese': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lactose': True},
+           'cream': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': True},
+           'heavy cream': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': True},
            'sour cream': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': True},
+           'almond cream': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': False},
+           'coconut cream': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': False},
            'butter': {'vegetarian': True, 'healthy': False, 'cuisine': None, 'lactose': True},
            'nut butter': {'vegetarian': True, 'healthy': True, 'cuisine': None, 'lactose': False},
            'queso fresco cheese': {'vegetarian': True, 'healthy': False, 'cuisine': 'mexican', 'lactose': True},
@@ -100,7 +105,9 @@ broths = {'chicken broth': {'vegetarian': False, 'healthy': True, 'cuisine': Non
           'vegetable broth': {'vegetarian': True, 'healthy': True, 'cuisine': None},}
 
 condiments = {'oil': {'vegetarian': True, 'healthy': False, 'cuisine': None},
+              'egg': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'garlic powder': {'vegetarian': True, 'healthy': True, 'cuisine': None},
+              'black peppercorn': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'black pepper': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'oregano': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'spaghetti sauce': {'vegetarian': True, 'healthy': True, 'cuisine': None},
@@ -171,12 +178,12 @@ class Recipe:
             self.methods.append(self.extract_methods(s))
 
     def __str__(self):
-        recipy = 'Recipy name:\n\t' + self.name + '\n'
-        ingredients = 'Ingredients:\n\t' + '\n\t'.join(self.ingredients) + '\n'
-        steps = 'Directions:\n' + '\n'.join([f'Step {i}\n\t'
-                                             + ' '.join([str(self.steps[i][j]) for j in range(len(self.steps[i]))])
-                                             for i in range(len(self.steps))])
-        return recipy + ingredients + steps
+        recipe = 'Recipe name:\n\t' + self.name + '\n'
+        ingredients = '\nIngredients:\n\t' + '\n\t'.join([str(ing) for ing in self.ingredients]) + '\n'
+        steps = '\nDirections:\n' + '\n'.join([f'Step {i}\n\t'
+                                               + ''.join([str(self.methods[i][j]) for j in range(len(self.methods[i]))])
+                                               for i in range(len(self.steps))])
+        return recipe + ingredients + steps + '\n'
 
     def extract_methods(self, step):
         methods = []
@@ -187,7 +194,7 @@ class Recipe:
 
     @staticmethod
     def partition(step):
-        matches = re.finditer(r'\.;,', step)
+        matches = re.finditer(r'[\.;,]', step)
         start = 0
         sub_steps = []
         for m in matches:
@@ -208,34 +215,33 @@ class Recipe:
             i.to_non_vegetarian()
         self.name = 'Non-Vegetarian ' + self.name
 
-
     def to_healthy(self):
         for i in self.ingredients:
             i.to_healthy()
         self.name = 'Healthy ' + self.name
-
 
     def to_unhealthy(self):
         for i in self.ingredients:
             i.to_unhealthy()
         self.name = 'Unhealthy ' + self.name
 
-
     def half(self):
         for i in self.ingredients:
             i.half()
-        for m in self.methods:
-            m.half()
+        for s in self.methods:
+            for m in s:
+                m.half()
 
     def double(self):
         for i in self.ingredients:
             i.double()
-        for m in self.methods:
-            m.double()
+        for s in self.methods:
+            for m in s:
+                m.double()
 
     def to_cuisine(self, cuisine):
         if cuisine == 'chinese':
-            flour = False
+            carbs = False
             protein = False
             veggie = False
             soup = False
@@ -243,10 +249,10 @@ class Recipe:
             steps = []
             if 'soup' in self.name: soup = True
             for ing in self.ingredients:
-                if 'flour' in ing.name: flour = True
+                if 'rice' in ing.name or 'bean' in ing.name or 'noodle' in ing.name: carbs = True
                 elif ing.type == 'protein': protein = True
                 elif ing.type == 'veggie': veggie = True
-            if not soup and flour and protein:
+            if not soup and carbs and protein:
                 # flour + protein -> pie
                 self.name = 'Chinese ' + self.name + ' Pie'
                 ingredients = [['2', '', 'large scallion, finely chopped'],
@@ -257,10 +263,10 @@ class Recipe:
                                ['½', 'cup', 'room temperature water'],
                                ['½', '', 'white onion']]
                 steps = ['Chop and mix the prepared food to make a protein-rich filling. Spread scallion white on top. Mix in chopped white onion.',
-                         'Add salt in all purpose flour and then add hot water firstly. Gently stir the hot water in. And stir in cold water too.  Roughly knead to form a dough. No need to be smooth. Cover and set aside for 30 minutes.',
-                         'Re-knead the dough, it should be smooth very quickly.  Cut into 2-ounce portions (10 pancakes from this batch) and then roll out to wrapper. Seal it completely. Avoid the edges meeting the filling, otherwise the sealing work is hard to complete.',
+                         'Add salt in all purpose flour and then add hot water firstly. Gently stir the hot water in. And stir in cold water too. Roughly knead to form a dough. No need to be smooth. Cover and set aside for 30 minutes.',
+                         'Re-knead the dough, it should be smooth very quickly. Cut into 2-ounce portions (10 pancakes from this batch) and then roll out to wrapper. Seal it completely. Avoid the edges meeting the filling, otherwise the sealing work is hard to complete.',
                          'Place the pancakes in a pan with oil, slightly press the center so the bottom can contact with the pan in better ways.',
-                         'Heat until the side becomes crispy.  Then turn over and fry the other side. Once the two side becomes well browned, slow down the fire and over with lid and let the pancake heat for another 3 to 5 minutes. This can further cook the inside part and make sure the inner part is well cooked too. Then remove the lid and heat both side for another ½ minute separately until the surface turn crispy again.',
+                         'Heat until the side becomes crispy. Then turn over and fry the other side. Once the two side becomes well browned, slow down the fire and over with lid and let the pancake heat for another 3 to 5 minutes. This can further cook the inside part and make sure the inner part is well cooked too. Then remove the lid and heat both side for another ½ minute separately until the surface turn crispy again.',
                          'Transfer to oil paper to remove extra oil.']
             elif not soup and protein:
                 # protein without flour
@@ -290,8 +296,8 @@ class Recipe:
                          'Add 2 tablespoons of cooking oil to the boiling mix. Add the vegetables and other main ingredients to the boil for about 3 minutes in maximum heat until it is cooked.',
                          'Transfer the food to a plate, serve with 2 tablespoons of light soy sauce.']
             elif not soup and not veggie:
-                # no protein/vegetables -> carbs: sticky rice + dairy: beans
-                self.name = 'Chinese Sticky Rice ' + self.name
+                # no protein/vegetables -> carbs: sticky rice + dairy: red bean paste
+                self.name = 'Chinese ' + self.name + ' Sticky Rice Cake w/ Red Bean Paste'
                 for ing in self.ingredients:
                     if ing.type == 'carb':
                         ing.change_ingredient('sticky rice flour')
@@ -313,6 +319,7 @@ class Recipe:
                          'Stir in carrot, red pepper, bamboo shoots, tofu, and the hot and sour mixture to the prepared soup. Add additional chicken broth to taste. Let simmer for 5 minutes. Transfer the soup to a bowl.']
             for ing in ingredients:
                 self.ingredients.append(Ingredient(*ing))
+            self.steps.extend(steps)
             for s in steps:
                 self.methods.append(self.extract_methods(s))
         elif cuisine == 'mexican':
@@ -350,16 +357,20 @@ class Recipe:
                 if 'salsa' in k:
                     salsas.append(k)
             ingredients.append(['½', 'cup', salsas[random.randint(0, len(salsas) - 1)]])
-            self.methods.append(
-                self.extract_methods('Bake the beans separately in a large bowl and mix with the main ingredients.'))
+            steps = ['Bake the beans separately in a large bowl and mix with the main ingredients.']
             if tacos:
+                self.name = 'Mexican ' + self.name + ' Tacos'
                 ingredients.append(['10', '', 'taco shells, warmed'])
-                self.methods.append(self.extract_methods('Serve the proteins and salsa with warmed taco shells.'))
+                steps.append('Serve the proteins and salsa with warmed taco shells.')
             else:
+                self.name = 'Mexican ' + self.name + ' Tortillas'
                 ingredients.append(['10', '', 'corn tortillas, warmed'])
-                self.methods.append(self.extract_methods('Serve the proteins and salsa with warmed corn tortillas.'))
+                steps.append('Serve the proteins and salsa with warmed corn tortillas.')
             for ing in ingredients:
                 self.ingredients.append(Ingredient(*ing))
+            self.steps.extend(steps)
+            for s in steps:
+                self.methods.append(self.extract_methods(s))
         else:
             Exception('Cuisine not implemented')
 
@@ -367,6 +378,7 @@ class Recipe:
         lf_milk = []
         lf_yogurt = []
         lf_cheese = []
+        lf_cream = []
         lf_butter = []
         for k in dairies.keys():
             if 'milk' in k and not dairies[k]['lactose']:
@@ -375,6 +387,8 @@ class Recipe:
                 lf_yogurt.append(k)
             elif 'cheese' in k and not dairies[k]['lactose']:
                 lf_cheese.append(k)
+            elif 'cream' in k and not dairies[k]['lactose']:
+                lf_cream.append(k)
             elif 'butter' in k and not dairies[k]['lactose']:
                 lf_butter.append(k)
         for ing in self.ingredients:
@@ -385,6 +399,8 @@ class Recipe:
                     ing.change_ingredient(lf_yogurt[random.randint(0, len(lf_yogurt) - 1)])
                 elif 'cheese' in ing.name:
                     ing.change_ingredient(lf_cheese[random.randint(0, len(lf_cheese) - 1)])
+                elif 'cream' in ing.name:
+                    ing.change_ingredient(lf_cream[random.randint(0, len(lf_cream) - 1)])
                 elif 'butter' in ing.name:
                     ing.change_ingredient(lf_butter[random.randint(0, len(lf_butter) - 1)])
 
@@ -392,38 +408,47 @@ class Recipe:
 class Ingredient:
     def __init__(self, quantity, unit, name):
         # parse name, quantity, measurement
+        # REQUIRE: params are stripped strs
         # optional: other descriptors
         fracs = {'⅛': 0.125, '¼': 0.25, '⅜': 0.375 ,'½': 0.5, '⅝': 0.625, '¾': 0.75, '⅞': 0.875}
         # remove special chars
         match = re.search(r'^\d+', quantity)
-        quant_digi = int(match.group())
-        index_digi = match.span()[1]
+        if match is not None:
+            quant_digi = int(match.group())
+            index_digi = match.span()[1]
+        else:
+            quant_digi = 0
+            index_digi = 0
         quant_frac = fracs[quantity[index_digi:]] if quantity[index_digi:] in fracs.keys() else 0
         # self.text= ' '.join([quantity, unit, name])
         self.quantity = quant_digi + quant_frac
-        self.quant_str = ' '.join([quantity, unit])
+        self.quant_str = ' '.join([quantity, unit]) if self.quantity > 0 else ''
         # sometimes no measurement is needed
         meas = ['cup', 'teaspoon', 'tablespoon', 'head', 'package', 'ounce', 'pound',
                 'container', 'package', 'jar', ]
         desc = ['chopped', 'finely chopped', 'coarsely chopped']
         # extract quantity details from within parentheses
         self.measurement = unit
-        self.alt_quant = int(re.search(r'^\d+', self.measurement).group())
+        alt_quant_match = re.search(r'^\d+', self.measurement)
+        self.alt_quant = int(alt_quant_match.group()) if alt_quant_match is not None else None
         self.ingredient = name
         # short name
-        self.name = None
+        self.name = name
+        self.default_name = True
         length = 0
         for n in ingredient_names:
-            if n in self.ingredient.lower():
-                if len(n.split(' ')) > length:
+            if n.lower() in self.ingredient.lower():
+                n_len = len(n.split(' '))
+                if n_len > length:
                     self.name = n
-                    length = n.split(' ')
+                    self.default_name = False
+                    length = n_len
         self.type = self.vegetarian = self.healthy = self.cuisine = None
         self.get_info()
         self.methods = []
 
     def get_info(self):
-        if self.name is not None:
+        if not self.default_name:
             if self.name in proteins.keys(): self.type = 'protein'
             elif self.name in vegetables.keys(): self.type = 'veggie'
             elif self.name in carbohydrates.keys(): self.type = 'carb'
@@ -438,15 +463,26 @@ class Ingredient:
         self.methods.append(method)
 
     def change_ingredient(self, new):
+        self.default_name = True
+        new_name = new
+        length = 0
+        for n in ingredient_names:
+            if n.lower() in new.lower():
+                n_len = len(n.split(' '))
+                if n_len > length:
+                    new_name = n
+                    self.default_name = False
+                    length = n_len
         for m in self.methods:
-            m.update_text(self.name, new)
-        self.name = new
+            m.update_text(self.name, new_name)
+        self.ingredient = self.ingredient.replace(self.name, new)
+        self.name = new_name
         self.get_info()
 
     def __str__(self):
         # round to the nearest eighth
         quant_str = self.quantity_str()
-        return ' '.join([quant_str, self.measurement, self.name])
+        return ' '.join([quant_str, self.measurement, self.ingredient])
 
     def to_vegetarian(self):
         if self.vegetarian:
@@ -454,12 +490,12 @@ class Ingredient:
         elif self.type == 'protein':
             veg_options = [k for k in proteins.keys() if proteins[k]['vegetarian']]
             for o in veg_options:
-                if self.name in o:
+                if self.name in o.lower():
                     self.change_ingredient(o)
                     return
             # replace other red meats with Impossible Meat
             if self.name in ['bacon', 'steak',]:
-                self.change_ingredient('Impossible Meat')
+                self.change_ingredient('Beyond Meat')
             else:
                 self.change_ingredient('tofu')
         elif self.type == 'broth':
@@ -576,9 +612,9 @@ class Ingredient:
         # round to the nearest eighth
         fracs = {0.125: '⅛', 0.25: '¼', 0.375: '⅜', 0.5: '½', 0.625: '⅝', 0.75: '¾', 0.875: '⅞'}
         quant_frac = self.quantity % 1
-        quant_digi = self.quantity - quant_frac
+        quant_digi = int(self.quantity - quant_frac)
         quant_frac = quant_frac - quant_frac % 0.125
-        quant_str = str(quant_digi)
+        quant_str = str(quant_digi) if quant_digi != 0 else ''
         if quant_frac != 0:
             quant_str += fracs[quant_frac]
         return quant_str
@@ -626,10 +662,10 @@ class Method:
         for t in tools:
             if t in text: self.tool = t
         self.ingredients = []
-        for ingredient in ingredients:
-            if ingredient.name in text:
-                self.ingredients.append(ingredient)
-                ingredient.add_method(self)
+        for ing in ingredients:
+            if ing.name in text:
+                self.ingredients.append(ing)
+                ing.add_method(self)
         # [[['time', 'txt'], 'float(lower)', 'float(upper)', 'unit'],...]
         self.time = Method.find_time(text)
 
@@ -645,45 +681,46 @@ class Method:
     def update_text(self, orig, new):
         # find and replace occurrences of ingredients and method/tool in text
         # run during every method/tool update, and ingredient update
-        if not orig[0].isupper():
-            re.sub(orig, new, self.text)
-            re.sub(orig[0].upper()+orig[1:], new[0].upper()+new[1:], self.text)
-        else:
-            re.sub(orig, new, self.text)
-            re.sub(orig[0].lower()+orig[1:], new, self.text)
+        if len(orig) > 0 and len(new) > 0:
+            if not orig[0].isupper():
+                self.text = re.sub(orig, new, self.text)
+                self.text = re.sub(orig[0].upper()+orig[1:], new[0].upper()+new[1:], self.text)
+            else:
+                self.text = re.sub(orig, new, self.text)
+                self.text = re.sub(orig[0].lower()+orig[1:], new, self.text)
 
     def half(self):
         for t in self.time:
             if t[1] == t[2]:
                 repl = ' '.join([str(t[1]/2), t[3]])
-                self.text.replace(' '.join(t[0]), repl)
+                self.text = self.text.replace(' '.join(t[0]), repl)
             else:
                 repl = ' '.join([str(t[1]/2), 'to', str(t[2]/2), t[3]])
-                self.text.replace(' '.join(t[0]))
+                self.text = self.text.replace(' '.join(t[0]), repl)
             t[1] /= 2
             t[2] /= 2
-            t[0] = repl
+            t[0] = repl.split(' ')
 
     def double(self):
         for t in self.time:
             if t[1] == t[2]:
                 repl = ' '.join([str(t[1]*2), t[3]])
-                self.text.replace(' '.join(t[0]), repl)
+                self.text = self.text.replace(' '.join(t[0]), repl)
             else:
                 repl = ' '.join([str(t[1]*2), 'to', str(t[2]*2), t[3]])
-                self.text.replace(' '.join(t[0]), repl)
+                self.text = self.text.replace(' '.join(t[0]), repl)
             t[1] *= 2
             t[2] *= 2
-            t[0] = repl
+            t[0] = repl.split(' ')
 
     def replace_method(self, method, tool=None):
-        re.sub(re.compile(f'{self.name}'), method, self.text)
+        self.text = re.sub(re.compile(f'{self.name}'), method, self.text)
         self.name = method
         if tool is None and method in self.default_tools.keys():
-            re.sub(re.compile(f'{self.tool}'), self.default_tools[method], self.text)
+            self.text = re.sub(re.compile(f'{self.tool}'), self.default_tools[method], self.text)
             self.tool = self.default_tools[method]
         elif tool is not None:
-            re.sub(re.compile(f'{self.tool}'), tool, self.text)
+            self.text = re.sub(re.compile(f'{self.tool}'), tool, self.text)
             self.tool = tool
 
     @staticmethod
@@ -693,18 +730,25 @@ class Method:
         # find 'minute(s)', 'hour(s)'
         for i, w in enumerate(text):
             if 'minute' in w or 'hour' in w:
-                limits = Method.extract_numerals(text[:i])
-                if limits is not None:
-                    limits.append(w)
-                    limits[0].append(w)
-                    time.append(limits)
+                if i > 0 and text[i - 1] == 'more':
+                    limits = Method.extract_numerals(text[:i - 1])
+                    if limits is not None:
+                        limits.append(w)
+                        limits[0].extend(['more', w])
+                        time.append(limits)
+                else:
+                    limits = Method.extract_numerals(text[:i])
+                    if limits is not None:
+                        limits.append(w)
+                        limits[0].append(w)
+                        time.append(limits)
         return time
 
     @staticmethod
     def extract_numerals(str_lst):
         upper, str_lst_remainder = Method.parse_number(str_lst)
         if upper is not None:
-            if len(str_lst_remainder) > 1 and str_lst_remainder[-1] == 'to':
+            if len(str_lst_remainder) > 1 and (str_lst_remainder[-1] == 'to' or str_lst_remainder[-1] == 'or'):
                 str_lst_remainder = str_lst_remainder[:-1]
                 lower, str_lst_remainder = Method.parse_number(str_lst_remainder)
             else:
