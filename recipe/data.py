@@ -1,7 +1,9 @@
 import requests
 import re
+import unidecode
 from bs4 import BeautifulSoup
 from recipy import *
+
 
 # request http file, parse title, ingredients, steps
 def scrape(url):
@@ -29,16 +31,17 @@ def is_name(tag):
 
 def get_recipe(url):
     soup = scrape(url)
+    name = soup.find('h1', class_='comp type--lion article-heading mntl-text-block')
     ingredients = []
     ingredient_lst = soup.find_all('li', class_='mntl-structured-ingredients__list-item')
     for e in ingredient_lst:
         quantity = e.p.find(is_quantity)
         unit = e.p.find(is_unit)
         name = e.p.find(is_name)
-        ingredients.append(Ingredient(quantity.contents[0], unit.contents[0], name.contents[0]))
+        ingredients.append(Ingredient(quantity.contents[0], unit.contents[0], unidecode.unidecode(name.contents[0])))
     steps = []
     step_lst = soup.find_all('p', class_='comp mntl-sc-block mntl-sc-block-html')
     for e in step_lst:
-        steps.append(Method(e.contents[0].strip()))
-    return Recipe(ingredients, steps)
+        steps.append(Method(unidecode.unidecode(e.contents[0].strip()), ingredients))
+    return Recipe(name, ingredients, steps)
 
