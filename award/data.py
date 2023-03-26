@@ -3,7 +3,7 @@ import re
 import unidecode
 
 gg2013 = json.load(open('./gg2013.json'))
-# gg2015 = json.load(open('./gg2015.json'))
+gg2015 = json.load(open('./gg2015.json'))
 
 
 def clean(data):
@@ -35,6 +35,7 @@ def clean(data):
 
 
 clean(gg2013)
+clean(gg2015)
 
 awards = [['best', 'motion', 'picture', 'drama'],
           ['best', 'motion', 'picture', 'comedy', 'or', 'musical'],

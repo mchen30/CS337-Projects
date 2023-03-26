@@ -1,7 +1,6 @@
 from data import *
 from utils import *
 import numpy as np
-import pandas as pd
 
 '''# extract host, equal weights for all methods
 ca_set = []
@@ -92,15 +91,8 @@ award_map_inv = {}
 for k in award_map.keys():
     award_map_inv[' '.join(award_map[k])] = k
 
-# xxx (has) won AWARD
-# xxx has won the golden globe for AWARD
-# xxx ... for her golden globe win as AWARD
-
-
 n_awards = len(awards)
 sorted_ca_winners = [None] * n_awards
-sorted_ca_presenters = [None] * n_awards
-sorted_ca_freq_nominees = [None] * n_awards
 
 for i, award in enumerate(awards):
     # get award names
@@ -169,24 +161,7 @@ for i, award in enumerate(awards):
                     cand_winner_text = look_forward(sent, j + len(award) - 1, start_exclude=['at'])
                 if cand_winner_text is not None and len(cand_winner_text) > 0:
                     ca_set_winner.append([cand_winner_text, tweet['timestamp_ms']])
-                # xxxx is presenting AWARD
-                if j > 2 and sent[j - 1] == 'presenting' and sent[j - 2] == 'is':
-                    cand_presenter_text = look_backward(sent, j, end=['is', 'presenting'], include=False)
-                # someone presents/present/presented AWARD to xxx
-                elif j > 1 and sent[j - 1] == 'presents':
-                    cand_presenter_text = look_backward(sent, j, end=['presents'], include=False)
-                elif j > 1 and sent[j - 1] == 'presented':
-                    cand_presenter_text = look_backward(sent, j, end=['presented'], include=False)
-                elif j > 1 and sent[j - 1] == 'present':
-                    cand_presenter_text = look_backward(sent, j, end=['present'], include=False)
-                # someone presents for AWARD
-                elif j > 2 and sent[j - 2] == 'presents' and sent[j - 1] == 'for':
-                    cand_presenter_text = look_backward(sent, j, end=['presents', 'for'], include=False)
-                # someone presenting
-                if cand_presenter_text is not None and len(cand_presenter_text) > 0:
-                    ca_set_presenter.append([cand_presenter_text, tweet['timestamp_ms']])
     sorted_ca_winners[i] = untie(unique_ngrams_ts(ca_set_winner))
-    sorted_ca_presenters[i] = untie(unique_ngrams_ts(ca_set_presenter))
 
 order = np.argsort([x[2] for x in sorted_ca_winners])
 timestamps = [sorted_ca_winners[i][2] for i in order]
@@ -300,12 +275,6 @@ res = filter_by_timestamp(candidates, timestamps)
 # order by award list
 nominee_grouped = [res[list(order).index(i)] for i in range(len(awards))]
 res = disqualify_kwd(nominee_grouped)
-'''res = []
-for g in nominee_grouped:
-    a, b = zip(*g)
-    a = [' '.join(x) for x in a]
-    res.append(list(zip(a,b)))'''
-
 res = [remove_duplicate_sublist_str(r) for r in res]
 
 # re-rank based on occurrence frequency
@@ -321,6 +290,8 @@ for i, g in enumerate(res):
     new_res[i] = sorted(new_res[i], key=lambda x: x[1], reverse=True)
 
 new_res = [remove_dup_single(r) for r in new_res]
+
+# new_res = res = rerank_ts_nominees(res, timestamps, gg2013)
 
 # remove winners from nominees
 for i, r in enumerate(new_res):
@@ -350,6 +321,8 @@ for i, award in enumerate(nom):
             tot+=1
 
 print(true/tot)
+for r in nom_res:
+    print(r)
 
 
 # extract presenters
@@ -403,33 +376,21 @@ for i, dt in enumerate(ts_diff):
     else:
         timestamps_mid.append(timestamps_mid[i] + ts_diff[i] / 2 + ts_diff[i - 1] / 2)
 
+# combine identical strings
 candidates = unique_strs_ts(presenters, start=timestamps_mid[0])
-res = filter_by_timestamp(candidates, timestamps_mid)
+# filter by award announcement time intervals
+res = filter_by_timestamp(candidates, timestamps_mid, relaxed=True)
+# remove clearly irrelevant terms
+res = disqualify_kwd_str(res)
+# combine identical items and merge sub-lists into super-lists
+res = combine_presenters(res)
+# rerank by occurrence frequency within award timeslot
+res = rerank_ts(res, timestamps_mid, gg2013)
+# soft combine by increasing the weight of super-strings when freq(sub-string)*0.75<freq(super-string)
+res = combine_presenter_sublists(res)
 
 # order by award list
-presenters_grouped = [res[list(order).index(i)] for i in range(len(awards))]
-res = disqualify_kwd_str(presenters_grouped)
-'''res = []
-for g in nominee_grouped:
-    a, b = zip(*g)
-    a = [' '.join(x) for x in a]
-    res.append(list(zip(a,b)))'''
-for r in res:
-    print(r)
-
-# res = [remove_duplicate_sublist_str(r) for r in res]
-'''
-# re-rank based on occurrence frequency
-new_res = [[] for _ in range(len(res))]
-for i, g in enumerate(res):
-    for x in g:
-        n = 0
-        for tweet in gg2013:
-            sent = tweet['text']
-            if x[0] in sent:
-                n += 1
-        new_res[i].append([x[0], n])
-    new_res[i] = sorted(new_res[i], key=lambda x: x[1], reverse=True)'''
+res = [res[list(order).index(i)] for i in range(len(awards))]
 
 # ordered by award list
 p = [ans['award_data'][award_map_inv[' '.join(a)]]['presenters'] for a in awards]
@@ -440,7 +401,7 @@ for i, award in enumerate(p):
     for n in award:
         if len(res[i]) > 0:
             cand_list, _ = zip(*res[i])
-            if n in np.concatenate(cand_list[:3]):
+            if n in np.concatenate(cand_list[:1]):
                 p_res[i].append([n, True])
                 true+=1
                 tot+=1

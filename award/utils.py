@@ -88,7 +88,6 @@ def find_inter(ngrams_lsts):
 
 
 def is_Sublist(l, s):
-    sub_set = False
     if s == []:
         sub_set = True
     elif s == l:
@@ -232,7 +231,7 @@ def unique_strs_ts(strs_lst, start=None):
     return sorted_cnt
 
 
-def filter_by_timestamp(candidates, sorted_ts):
+def filter_by_timestamp(candidates, sorted_ts, relaxed=False):
     results = [[] for _ in range(len(sorted_ts))]
     for cand in candidates:
         if cand[2] < sorted_ts[0]:
@@ -243,18 +242,21 @@ def filter_by_timestamp(candidates, sorted_ts):
         while i < len(sorted_ts) and cand[2] > sorted_ts[i]:
             i += 1
         results[i - 1].append([cand[0], cand[1]])
-        '''if i > 1:
-            results[i - 2].append([cand[0], cand[1]])
-        if i > 2:
-            results[i - 3].append([cand[0], cand[1]])
-        if i > 3:
-            results[i - 4].append([cand[0], cand[1]])
-        if i > 4:
-            results[i - 5].append([cand[0], cand[1]])
-        if i > 5:
-            results[i - 6].append([cand[0], cand[1]])
-        if i > 6:
-            results[i - 7].append([cand[0], cand[1]])'''
+        if relaxed:
+            '''if i < len(results):
+                results[i].append([cand[0], cand[1]])'''
+            if i > 1:
+                results[i - 2].append([cand[0], cand[1]])
+            '''if i > 2:
+                results[i - 3].append([cand[0], cand[1]])
+            if i > 3:
+                results[i - 4].append([cand[0], cand[1]])
+            if i > 4:
+                results[i - 5].append([cand[0], cand[1]])
+            if i > 5:
+                results[i - 6].append([cand[0], cand[1]])
+            if i > 6:
+                results[i - 7].append([cand[0], cand[1]])'''
     return results
 
 
@@ -339,7 +341,8 @@ def disqualify_kwd_str(results):
             'love', 'definitely', 'night', 'this', 'winning', 'man', 'men', 'hollywood', 'told', 'costars', 'speak',
             'notice', 'boss', 'en', 'y', 'b', 'q', 'si', 'un', 'che', 'el', 'sexy', 'que', 'unidos', 'favorito', 'gente',
             'arrived', 'la', 'le', 'together', 'watching', 'nos', 'cuando', 'estan', 'tres', 'beau', 'hola', 'actors',
-            'actor', 'shes', 'hes', 'done', 'terracolombia']
+            'actor', 'shes', 'hes', 'done', 'terracolombia', 'miss', 'con', 'actriz', 'guaperrima', 'mr', 'hermosa',
+            'woman', 'aux', 'ransom', 'hon', 'let', 'watch', 'verdadero']
     kwds_partial = ['president', 'yaa', 'hah', 'hmm', 'ooo', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
     res = []
@@ -422,3 +425,110 @@ def extract_presenters(sent, backward=True, eng=True):
             if len(sent) > 2:
                 presenters.append([' '.join(sent[:3])])
     return presenters
+
+
+def combine_presenters(lsts):
+    return [_combine_presenters(l) for l in lsts]
+
+
+def combine_presenter_sublists(lsts):
+    return [_combine_presenter_sublists(l) for l in lsts]
+
+
+def _combine_presenters(lst):
+    remove = []
+    for i, l in enumerate(lst):
+        for j, m in enumerate(lst):
+            if j == i or i in remove or j in remove:
+                continue
+            elif set(l[0]) == set(m[0]):
+                remove.append(j)
+                l[1] += m[1]
+            elif len(l[0]) == 1 and set(l[0]) < set(m[0]):
+                remove.append(i)
+                m[1] = max(m[1], l[1])
+            elif len(m[0]) == 1 and set(m[0]) < set(l[0]):
+                remove.append(j)
+                l[1] = max(m[1], l[1])
+
+    remove = sorted(remove, reverse=True)
+    for idx in remove:
+        lst.remove(lst[idx])
+    # prefer pairs by summing counts for individuals in pairs
+    return sorted(lst, key=lambda x:x[1], reverse=True)
+
+
+def _combine_presenter_sublists(lst):
+    for i, l in enumerate(lst):
+        for j, m in enumerate(lst):
+            if j == i:
+                continue
+            l_match = True
+            for ll in l[0]:
+                m_match = False
+                for mm in m[0]:
+                    if ll in mm:
+                        m_match = True
+                if not m_match:
+                    l_match = False
+            if l_match and l[1] * 0.75 < m[1]:
+                lst[j][1] /= 0.75
+    # prefer pairs by summing counts for individuals in pairs
+    return sorted(lst, key=lambda x:x[1], reverse=True)
+
+
+def rerank_ts(lsts, ts, data):
+    # zero counts
+    new_lsts = deepcopy(lsts)
+    names_lst = []
+    for i, lst in enumerate(new_lsts):
+        names, _ = zip(*lst)
+        names_lst.append(names)
+    for l in new_lsts:
+        for e in l: e[1] = 0
+    for tweet in data:
+        if 'dress' not in tweet['text'] or 'present' in tweet['text']:
+            t = tweet['timestamp_ms']
+            i = 0
+            while i < len(ts) and t > ts[i]:
+                i += 1
+            i -= 1
+            if i > -1:
+                sent = tweet['text'].split()
+                for j, x in enumerate(names_lst[i]):
+                    for k, y in enumerate(x):
+                        if is_Sublist(sent, y.split()):
+                            new_lsts[i][j][1] += 1
+    '''# average counts for pairs
+    for i, lst in enumerate(new_lsts):
+        for j, x in enumerate(lst):
+            new_lsts[i][j][1] /= len(new_lsts[i][j][0])'''
+    return [sorted(lst, key=lambda x:x[1], reverse=True) for lst in new_lsts]
+
+
+def rerank_ts_nominees(lsts, ts, data):
+    # zero counts
+    new_lsts = deepcopy(lsts)
+    names_lst = []
+    for i, lst in enumerate(new_lsts):
+        names, _ = zip(*lst)
+        names_lst.append(names)
+    for l in new_lsts:
+        for e in l: e[1] = 0
+    for tweet in data:
+        if 'dress' not in tweet['text'] or 'nomin' in tweet['text']:
+            t = tweet['timestamp_ms']
+            i = 0
+            while i < len(ts) and t > ts[i]:
+                i += 1
+            i -= 1
+            if i > -1:
+                text = tweet['text']
+                for j, x in enumerate(names_lst[i]):
+                    if x in text:
+                        new_lsts[i][j][1] += 1
+    '''# average counts for pairs
+    for i, lst in enumerate(new_lsts):
+        for j, x in enumerate(lst):
+            new_lsts[i][j][1] /= len(new_lsts[i][j][0])'''
+    return [sorted(lst, key=lambda x:x[1], reverse=True) for lst in new_lsts]

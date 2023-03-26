@@ -6,10 +6,10 @@ def get_new_recipe():
     print('Please input a URL from AllRecipes.com: ')
     while recipe is None:
         url = input()
-        #try:
-        recipe = get_recipe(url)
-        '''except Exception as e:
-            print(f'Invalid URL or empty webpage ({e}) please try again:')'''
+        try:
+            recipe = get_recipe(url)
+        except Exception as e:
+            print(f'Invalid URL or empty webpage ({e}), please try again:')
     print('The extracted recipe is:\n')
     print(recipe)
 
