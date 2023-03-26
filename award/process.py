@@ -1,10 +1,11 @@
 from data import *
 from utils import *
 import numpy as np
+# from line_profiler_pycharm import profile
 
 '''# extract host, equal weights for all methods
 ca_set = []
-for tweet in gg2013:
+for tweet in gg2015:
     sent = tweet['text'].split()
 
     for i, word in enumerate(sent):
@@ -35,7 +36,7 @@ ca = remove_all_sublists(sorted_ca)
 ca_freq = []
 for x in ca:
     n = 0
-    for tweet in gg2013:
+    for tweet in gg2015:
         sent = tweet['text'].split()
         if is_Sublist(sent, x):
             n += 1
@@ -53,7 +54,7 @@ while not found:
 
 # extract award names
 ca_set_awards = []
-for tweet in gg2013:
+for tweet in gg2015:
     sent = tweet['text'].split()
 
     for i, word in enumerate(sent):
@@ -78,7 +79,7 @@ ca_awards = remove_all_sublists(sorted_ca_awards)
 ca_freq_awards = []
 for x in ca_awards:
     n = 0
-    for tweet in gg2013:
+    for tweet in gg2015:
         sent = tweet['text'].split()
         if is_Sublist(sent, x):
             n += 1
@@ -93,115 +94,92 @@ for k in award_map.keys():
 
 n_awards = len(awards)
 sorted_ca_winners = [None] * n_awards
+ca_set_winner = [[] for _ in range(n_awards)]
+ca_set_presenter = [[] for _ in range(n_awards)]
 
-for i, award in enumerate(awards):
-    # get award names
-    award_str = ' '.join(award)
-    ca_set_winner = []
-    ca_set_presenter = []
-    for tweet in gg2013:
-        sent = tweet['text'].split()
-        for j, word in enumerate(sent):
-            sent_str = ' '.join(sent[j: j + len(award)])
-            if award_str == sent_str:
-                cand_winner_text = None
-                cand_presenter_text = None
-                # AWARD goes to xxx
-                if j + len(award) + 2 < len(sent) and sent[j + len(award)] == 'goes' and sent[j + len(award) + 1] == 'to':
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start=['goes', 'to'], include=False)
-                # AWARD (#goldenglobe) awarded to xxx
-                elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'awarded' and sent[j + len(award) + 1] == 'to':
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start=['awarded', 'to'], include=False)
-                # AWARD is awarded to xxx
-                elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'is' and sent[j + len(award) + 1] == 'awarded' and sent[j + len(award) + 2] == 'to':
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start=['is', 'awarded', 'to'], include=False)
-                # winner for AWARD is xxx
-                elif j > 2 and sent[j - 1] == 'for' and sent[j - 2] == 'winner' and len(sent) > j + len(award) + 1 and sent[j + len(award)] == 'is':
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start=['is'], include=False)
-                # AWARD is xxx
-                elif len(sent) > j + len(award) and sent[j + len(award)] == 'is':
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start=['is'], include=False)
-                # someone presents AWARD to xxx
-                elif j > 2 and len(sent) > j + len(award) and sent[j + len(award)] == 'to' and sent[j - 1] == 'presents':
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start=['to'], include=False)
-                # xxx wins/won/has won the #goldenglobe for AWARD
-                elif j > 4 and sent[j - 1] == 'for' and sent[j - 2] == 'the' and sent[j - 3] == 'wins':
-                    cand_winner_text = look_backward(sent, j, end=['wins', 'the', 'for'], include=False)
-                elif j > 4 and sent[j - 1] == 'for' and sent[j - 2] == 'the' and sent[j - 3] == 'won':
-                    cand_winner_text = look_backward(sent, j, end=['won', 'the', 'for'], include=False)
-                elif j > 5 and sent[j - 1] == 'for' and sent[j - 2] == 'the' and sent[j - 3] == 'won' and sent[j - 4] == 'has':
-                    cand_winner_text = look_backward(sent, j, end=['has', 'won', 'the', 'for'], include=False)
-                # xxx wins/won/has won the golden globe for AWARD
-                elif j > 4 and sent[j - 1] == 'for' and sent[j - 4] == 'the' and sent[j - 5] == 'wins':
-                    cand_winner_text = look_backward(sent, j, end=['wins', 'the', 'golden', 'globe', 'for'], include=False)
-                elif j > 4 and sent[j - 1] == 'for' and sent[j - 4] == 'the' and sent[j - 5] == 'won':
-                    cand_winner_text = look_backward(sent, j, end=['won', 'the', 'golden', 'globe', 'for'], include=False)
-                elif j > 5 and sent[j - 1] == 'for' and sent[j - 4] == 'the' and sent[j - 5] == 'won' and sent[j - 6] == 'has':
-                    cand_winner_text = look_backward(sent, j, end=['has', 'won', 'the', 'golden', 'globe', 'for'], include=False)
-                # xxx - #goldenglobe winner for AWARD
-                elif j > 3 and sent[j - 1] == 'for' and sent[j - 2] == 'winner':
-                    cand_winner_text = look_backward(sent, j, end=['winner', 'for'], include=False)
-                # congrat/congrats to xxx for her/his golden globe win as AWARD
-                elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'his' and sent[j - 6] == 'for':
-                    cand_winner_text = look_backward(sent, j, end=['for', 'his', 'golden', 'globe', 'win', 'as'], include=False)
-                elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'her' and sent[j - 6] == 'for':
-                    cand_winner_text = look_backward(sent, j, end=['for', 'her', 'golden', 'globe', 'win', 'as'], include=False)
-                # xxx for AWARD
-                elif j > 1 and sent[j - 1] == 'for':
-                    cand_winner_text = look_backward(sent, j, end=['for'], include=False)
-                # xxx wins/won/has won AWARD
-                elif j > 1 and sent[j - 1] == 'wins':
-                    cand_winner_text = look_backward(sent, j, end=['wins'], include=False)
-                elif j > 1 and sent[j - 1] == 'won':
-                    cand_winner_text = look_backward(sent, j, end=['won'], include=False)
-                elif j > 2 and sent[j - 1] == 'won' and sent[j - 2] == 'has':
-                    cand_winner_text = look_backward(sent, j, end=['has', 'won'], include=False)
-                # AWARD: xxx
-                elif j + len(award) < len(sent):
-                    cand_winner_text = look_forward(sent, j + len(award) - 1, start_exclude=['at'])
-                if cand_winner_text is not None and len(cand_winner_text) > 0:
-                    ca_set_winner.append([cand_winner_text, tweet['timestamp_ms']])
-    sorted_ca_winners[i] = untie(unique_ngrams_ts(ca_set_winner))
+for tweet in gg2015:
+    text = tweet['text']
+    sent = text.split()
+
+    for i, award in enumerate(awards):
+        # get award names
+        award_str = ' '.join(award)
+        if award_str in text:
+            j = text.find(award_str)
+            j = len(text[:j].split())
+            '''
+    for j, word in enumerate(sent):
+        sent_str = ' '.join(sent[j: j + len(award)])
+        if award_str == sent_str:'''
+            cand_winner_text = None
+            cand_presenter_text = None
+            # AWARD goes to xxx
+            if j + len(award) + 2 < len(sent) and sent[j + len(award)] == 'goes' and sent[j + len(award) + 1] == 'to':
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start=['goes', 'to'], include=False)
+            # AWARD (#goldenglobe) awarded to xxx
+            elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'awarded' and sent[j + len(award) + 1] == 'to':
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start=['awarded', 'to'], include=False)
+            # AWARD is awarded to xxx
+            elif j + len(award) + 3 < len(sent) and sent[j + len(award)] == 'is' and sent[j + len(award) + 1] == 'awarded' and sent[j + len(award) + 2] == 'to':
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start=['is', 'awarded', 'to'], include=False)
+            # winner for AWARD is xxx
+            elif j > 2 and sent[j - 1] == 'for' and sent[j - 2] == 'winner' and len(sent) > j + len(award) + 1 and sent[j + len(award)] == 'is':
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start=['is'], include=False)
+            # AWARD is xxx
+            elif len(sent) > j + len(award) and sent[j + len(award)] == 'is':
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start=['is'], include=False)
+            # someone presents AWARD to xxx
+            elif j > 2 and len(sent) > j + len(award) and sent[j + len(award)] == 'to' and sent[j - 1] == 'presents':
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start=['to'], include=False)
+            # xxx wins/won/has won the #goldenglobe for AWARD
+            elif j > 4 and sent[j - 1] == 'for' and sent[j - 2] == 'the' and sent[j - 3] == 'wins':
+                cand_winner_text = look_backward(sent, j, end=['wins', 'the', 'for'], include=False)
+            elif j > 4 and sent[j - 1] == 'for' and sent[j - 2] == 'the' and sent[j - 3] == 'won':
+                cand_winner_text = look_backward(sent, j, end=['won', 'the', 'for'], include=False)
+            elif j > 5 and sent[j - 1] == 'for' and sent[j - 2] == 'the' and sent[j - 3] == 'won' and sent[j - 4] == 'has':
+                cand_winner_text = look_backward(sent, j, end=['has', 'won', 'the', 'for'], include=False)
+            # xxx wins/won/has won the golden globe for AWARD
+            elif j > 4 and sent[j - 1] == 'for' and sent[j - 4] == 'the' and sent[j - 5] == 'wins':
+                cand_winner_text = look_backward(sent, j, end=['wins', 'the', 'golden', 'globe', 'for'], include=False)
+            elif j > 4 and sent[j - 1] == 'for' and sent[j - 4] == 'the' and sent[j - 5] == 'won':
+                cand_winner_text = look_backward(sent, j, end=['won', 'the', 'golden', 'globe', 'for'], include=False)
+            elif j > 5 and sent[j - 1] == 'for' and sent[j - 4] == 'the' and sent[j - 5] == 'won' and sent[j - 6] == 'has':
+                cand_winner_text = look_backward(sent, j, end=['has', 'won', 'the', 'golden', 'globe', 'for'], include=False)
+            # xxx - #goldenglobe winner for AWARD
+            elif j > 3 and sent[j - 1] == 'for' and sent[j - 2] == 'winner':
+                cand_winner_text = look_backward(sent, j, end=['winner', 'for'], include=False)
+            # congrat/congrats to xxx for her/his golden globe win as AWARD
+            elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'his' and sent[j - 6] == 'for':
+                cand_winner_text = look_backward(sent, j, end=['for', 'his', 'golden', 'globe', 'win', 'as'], include=False)
+            elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'her' and sent[j - 6] == 'for':
+                cand_winner_text = look_backward(sent, j, end=['for', 'her', 'golden', 'globe', 'win', 'as'], include=False)
+            # xxx for AWARD
+            elif j > 1 and sent[j - 1] == 'for':
+                cand_winner_text = look_backward(sent, j, end=['for'], include=False)
+            # xxx wins/won/has won AWARD
+            elif j > 1 and sent[j - 1] == 'wins':
+                cand_winner_text = look_backward(sent, j, end=['wins'], include=False)
+            elif j > 1 and sent[j - 1] == 'won':
+                cand_winner_text = look_backward(sent, j, end=['won'], include=False)
+            elif j > 2 and sent[j - 1] == 'won' and sent[j - 2] == 'has':
+                cand_winner_text = look_backward(sent, j, end=['has', 'won'], include=False)
+            # AWARD: xxx
+            elif j + len(award) < len(sent):
+                cand_winner_text = look_forward(sent, j + len(award) - 1, start_exclude=['at'])
+            if cand_winner_text is not None and len(cand_winner_text) > 0:
+                ca_set_winner[i].append([cand_winner_text, tweet['timestamp_ms']])
+
+for i in range(n_awards):
+    sorted_ca_winners[i] = untie(unique_ngrams_ts(ca_set_winner[i]))
 
 order = np.argsort([x[2] for x in sorted_ca_winners])
 timestamps = [sorted_ca_winners[i][2] for i in order]
 
 nominees = []
-for tweet in gg2013:
+for tweet in gg2015:
     sent = tweet['text'].split()
     nominee_text = []
     for j, word in enumerate(sent):
-        # nominee x
-        # someone is/are/was/get/got nominated for (directing) : partial matches?
-        # someone (as xxx) nominated for xxx (role?) in AWARD
-        # nominated for AWARD
-        # nominated for an award
-        # xxx should have won
-        # xxx deserved to win
-        # xxx deserved that
-        # rooting for xxx
-        # wanted xxx to win
-        # xxx didn't win
-        # xxx was robbed
-
-        # beat(s)/beat(s) out
-        # no win for
-        # xxx is up for
-        # i hope xxx wins
-        # xxx would win
-        # why not xxx
-        '''if word == 'nominee':
-            nominee_text += look_forward(sent, j)
-        elif word == 'nominated': # and j < len(sent) - 1 and sent[j+1] == 'for':
-            nominee_text += look_backward(sent, j)
-            nominee_text += look_backward(sent, j, end=['is'], include=False)
-            nominee_text += look_backward(sent, j, end=['are'], include=False)
-            nominee_text += look_backward(sent, j, end=['was'], include=False)
-            nominee_text += look_backward(sent, j, end=['were'], include=False)
-            nominee_text += look_backward(sent, j, end=['get'], include=False)
-            nominee_text += look_backward(sent, j, end=['got'], include=False)
-            nominee_text += look_backward(sent, j, end=['has', 'been'], include=False)
-            nominee_text += look_backward(sent, j, end=['have', 'been'], include=False)'''
         if word == 'won' and j > 0:
             if sent[j-1] == 'have':
                 if j>2 and (sent[j-3] == 'seriously' or sent[j-3] == 'completely' or sent[j-3] == 'definitely' or sent[j-3] == 'entirely' or sent[j-3] == 'totally' or sent[j-3] == 'totes'):
@@ -260,12 +238,6 @@ for tweet in gg2013:
             nominee_text += look_backward(sent, j, end=['is'], include=False)
         elif word == 'why' and j < len(sent) - 2 and sent[j + 1] == 'not':
             nominee_text += look_forward(sent, j+1)
-        '''elif word == 'hope' and j > 0 and sent[j - 1] == 'i':
-            nominee_text += look_forward(sent, j, end=['wins'], include=False)
-        elif word == 'would' and j < len(sent) - 1 and sent[j + 1] == 'win':
-            nominee_text += look_backward(sent, j)
-        elif word == 'rooting':
-            nominee_text += look_forward(sent, j, start=['for'], include=False)'''
     if len(nominee_text) > 0:
         nominees.append([nominee_text, tweet['timestamp_ms']])
 
@@ -282,7 +254,7 @@ new_res = [[] for _ in range(len(res))]
 for i, g in enumerate(res):
     for x in g:
         n = 0
-        for tweet in gg2013:
+        for tweet in gg2015:
             sent = tweet['text']
             if x[0] in sent:
                 n += 1
@@ -290,8 +262,6 @@ for i, g in enumerate(res):
     new_res[i] = sorted(new_res[i], key=lambda x: x[1], reverse=True)
 
 new_res = [remove_dup_single(r) for r in new_res]
-
-# new_res = res = rerank_ts_nominees(res, timestamps, gg2013)
 
 # remove winners from nominees
 for i, r in enumerate(new_res):
@@ -324,17 +294,13 @@ print(true/tot)
 for r in nom_res:
     print(r)
 
-
 # extract presenters
 presenters = []
-for tweet in gg2013:
+for tweet in gg2015:
     sent = tweet['text'].split()
     presenter_text = []
     for i, word in enumerate(sent):
-        # x and x are presenting
-        # x is presenting
-        # x presenting
-        # x and x presenting
+        # x is/are presenting
         if word == 'presenting' and i > 0:
             if sent[i - 1] == 'are':
                 p = extract_presenters(sent[:i - 1])
@@ -354,8 +320,6 @@ for tweet in gg2013:
         elif word == 'present' or word == 'presents':
             if i > 0 and sent[i - 1] == 'to':
                 continue
-                '''p = extract_presenters(sent[:i - 1])
-                if len(p) > 0: presenter_text.extend(p)'''
             else:
                 p = extract_presenters(sent[:i])
                 if len(p) > 0: presenter_text.extend(p)
@@ -385,7 +349,7 @@ res = disqualify_kwd_str(res)
 # combine identical items and merge sub-lists into super-lists
 res = combine_presenters(res)
 # rerank by occurrence frequency within award timeslot
-res = rerank_ts(res, timestamps_mid, gg2013)
+res = rerank_ts(res, timestamps_mid, gg2015)
 # soft combine by increasing the weight of super-strings when freq(sub-string)*0.75<freq(super-string)
 res = combine_presenter_sublists(res)
 

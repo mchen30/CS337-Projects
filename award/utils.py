@@ -1,5 +1,6 @@
 import numpy as np
 from copy import deepcopy
+# from line_profiler_pycharm import profile
 
 
 def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None):
