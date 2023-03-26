@@ -1,9 +1,10 @@
 import numpy as np
 from copy import deepcopy
 from line_profiler_pycharm import profile
+from functools import reduce
+import ray
 
 
-@profile
 def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None):
     ngrams = []
     offset = None
@@ -152,6 +153,12 @@ def remove_all_sublists(sorted_ca):
     for to_remove in removal:
         sorted_ca.remove(to_remove)
     return [x[0] for x in sorted_ca]
+
+
+# per award
+@ray.remote
+def untie_raw_winners(winners):
+    return untie(unique_ngrams_ts(winners))
 
 
 def untie(sorted_ca):
@@ -484,38 +491,35 @@ def _combine_presenter_sublists(lst):
     return sorted(lst, key=lambda x:x[1], reverse=True)
 
 
-@profile
-def rerank_nom(data, lsts):
+@ray.remote
+def rerank_nominees(data, indices, lsts):
     # re-rank based on occurrence frequency
-    new_lsts = deepcopy(lsts)
-    for l in new_lsts:
+    for l in lsts:
         for e in l: e[1] = 0
-    for tweet in data:
+    for tweet in data[indices[0]: indices[1]]:
         sent = tweet['text']
-        for i, g in enumerate(new_lsts):
+        for i, g in enumerate(lsts):
             for x in g:
                 if x[0] in sent:
                     x[1] += 1
-    candidates = [sorted(new_lsts[i], key=lambda x: x[1], reverse=True) for i in range(len(new_lsts))]
+    # candidates = [sorted(lsts[i], key=lambda x: x[1], reverse=True) for i in range(len(lsts))]
+    return lsts
 
-    return candidates
 
-
-@profile
-def rerank_ts(data, lsts, ts):
+@ray.remote
+def rerank_ts(data, indices, lsts, ts):
     # zero counts
-    new_lsts = deepcopy(lsts)
+    ts_len = len(ts)
     names_lst = []
-    for i, lst in enumerate(new_lsts):
+    for i, lst in enumerate(lsts):
         names, _ = zip(*lst)
         names_lst.append(names)
-    for l in new_lsts:
+    for l in lsts:
         for e in l: e[1] = 0
-    for tweet in data:
+    for tweet in data[indices[0]: indices[1]]:
         if 'dress' not in tweet['text'] or 'present' in tweet['text']:
             t = int(tweet['timestamp_ms'])
             i = 0
-            ts_len = len(ts)
             while i < ts_len and t > ts[i]:
                 i += 1
             i -= 1
@@ -524,39 +528,53 @@ def rerank_ts(data, lsts, ts):
                 for j, x in enumerate(names_lst[i]):
                     for k, y in enumerate(x):
                         if y in text:
-                            new_lsts[i][j][1] += 1
+                            lsts[i][j][1] += 1
     '''# average counts for pairs
     for i, lst in enumerate(new_lsts):
         for j, x in enumerate(lst):
             new_lsts[i][j][1] /= len(new_lsts[i][j][0])'''
-    return [sorted(lst, key=lambda x:x[1], reverse=True) for lst in new_lsts]
+    return lsts
 
 
 @profile
-def rerank_ts_nominees(lsts, ts, data):
-    # zero counts
-    new_lsts = deepcopy(lsts)
-    names_lst = []
-    for i, lst in enumerate(new_lsts):
-        names, _ = zip(*lst)
-        names_lst.append(names)
-    for l in new_lsts:
-        for e in l: e[1] = 0
-    for tweet in data:
-        if 'dress' not in tweet['text'] or 'nomin' in tweet['text']:
-            t = int(tweet['timestamp_ms'])
-            i = 0
-            ts_len = len(ts)
-            while i < ts_len and t > ts[i]:
-                i += 1
-            i -= 1
-            if i > -1:
-                text = tweet['text']
-                for j, x in enumerate(names_lst[i]):
-                    if x in text:
-                        new_lsts[i][j][1] += 1
-    '''# average counts for pairs
-    for i, lst in enumerate(new_lsts):
-        for j, x in enumerate(lst):
-            new_lsts[i][j][1] /= len(new_lsts[i][j][0])'''
-    return [sorted(lst, key=lambda x:x[1], reverse=True) for lst in new_lsts]
+def ray_data_workers(func_ray, func_comb, n_CPU, data_len, data_ref, *params):
+    results = []
+    result_refs = []
+    for cpu in range(n_CPU):
+        result_refs.append(func_ray.remote(data_ref, [int(data_len / n_CPU * cpu), int(data_len / n_CPU * (cpu + 1))], *params))
+    for ref in result_refs:
+        results.append(ray.get(ref))
+    return func_comb(results)
+
+
+def ray_res_workers(func_ray, func_comb, data, *params):
+    results = []
+    results_refs = []
+    for d in data:
+        results_refs.append(func_ray.remote(d, *params))
+    for ref in results_refs:
+        results.append(ray.get(ref))
+    return func_comb(results)
+
+
+def rerank_combine(results):
+    combined = zip(*results)
+    merged = [[] for _ in range(len(results[0]))]
+    for i, lsts in enumerate(combined):
+        keys = [x[0] for x in lsts[0]]
+        for k in keys:
+            score = sum([x[1] if x[0] == k else 0 for e in lsts for x in e])
+            merged[i].append([k, score])
+    return [sorted(lst, key=lambda x:x[1], reverse=True) for lst in merged]
+
+
+def collect(results):
+    return results
+
+
+def collect_combine(results):
+    return reduce(lambda a, b: a+b, results)
+
+
+def collect_combine_n(results):
+    return reduce(lambda a, b: list(map(lambda x, y: x+y, a, b)), results)

@@ -1,24 +1,27 @@
 import json
 import re
 import unidecode
+from line_profiler_pycharm import profile
+import ray
 
-gg2013 = json.load(open('./gg2013.json'))
-gg2015 = json.load(open('./gg2015.json'))
+n_CPU = 4
+ray.init(num_cpus=n_CPU)
 
 
-def clean(data):
-    for tweet in data:
+@ray.remote
+def clean(data, indices):
+    new_data = []
+    for tweet in data[indices[0]: indices[1]]:
+        new_tweet = {}
         sent = tweet['text'].strip().split()
-        tweet['hashtag'] = []
+        new_tweet['timestamp_ms'] = tweet['timestamp_ms']
+        new_tweet['hashtag'] = []
         new_sent = []
         for i, word in enumerate(sent):
             # not good for extracting winners
             if word.startswith('#'):
                 # store hashtags separately
-                tweet['hashtag'].append(word[1:].lower())
-                '''if word.startswith('#'):
-                # store hashtags separately
-                new_sent.append(word[1:].lower())'''
+                new_tweet['hashtag'].append(word[1:].lower())
             elif word.startswith('http'):
                 continue
             elif word == '&amp;':
@@ -31,11 +34,25 @@ def clean(data):
             else:
                 # remove punctuation and case
                 new_sent.append(word.lower())
-        tweet['text'] = unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent)))
+        new_tweet['text'] = unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent)))
+        new_data.append(new_tweet)
+    return new_data
 
 
-clean(gg2013)
-clean(gg2015)
+def load(path):
+    data = json.load(open(path))
+    data_ref = ray.put(data)
+    new_data_refs = []
+    for cpu in range(n_CPU):
+        new_data_refs.append(clean.remote(data_ref, [int(len(data) / n_CPU * cpu), int(len(data) / n_CPU * (cpu+1))]))
+    new_data = []
+    for ref in new_data_refs:
+        new_data += ray.get(ref)
+    return new_data
+
+
+gg2013 = load('./gg2013.json')
+gg2015 = load('./gg2015.json')
 
 awards = [['best', 'motion', 'picture', 'drama'],
           ['best', 'motion', 'picture', 'comedy', 'or', 'musical'],
