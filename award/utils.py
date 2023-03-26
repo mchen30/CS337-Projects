@@ -1,8 +1,9 @@
 import numpy as np
 from copy import deepcopy
-# from line_profiler_pycharm import profile
+from line_profiler_pycharm import profile
 
 
+@profile
 def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None):
     ngrams = []
     offset = None
@@ -293,17 +294,20 @@ def disqualify_kwd(results):
             e_str = ' '.join(e[0])
             found = False
             i = 0
-            while not found and i < len(kwds):
+            kwds_len = len(kwds)
+            kwds_par_len = len(kwds_partial)
+            kwds_ful_len = len(kwds_full)
+            while not found and i < kwds_len:
                 if kwds[i] in e[0]:
                     found = True
                 i += 1
             i = 0
-            while not found and i < len(kwds_partial):
+            while not found and i < kwds_par_len:
                 if e_str.find(kwds_partial[i]) != -1:
                     found = True
                 i += 1
             i = 0
-            while not found and i < len(kwds_full):
+            while not found and i < kwds_ful_len:
                 if kwds_full[i] == e_str:
                     found = True
                 i += 1
@@ -354,12 +358,14 @@ def disqualify_kwd_str(results):
             found = False
             for p in e[0]:
                 i = 0
-                while not found and i < len(kwds):
+                kwds_len = len(kwds)
+                kwds_par_len = len(kwds_partial)
+                while not found and i < kwds_len:
                     if kwds[i] in p.split(' '):
                         found = True
                     i += 1
                 i = 0
-                while not found and i < len(kwds_partial):
+                while not found and i < kwds_par_len:
                     if kwds_partial[i] in p:
                         found = True
                     i += 1
@@ -383,7 +389,7 @@ def remove_dup_single(res):
 
 
 # names presumed to have two or three words
-def extract_presenters(sent, backward=True, eng=True):
+def find_presenters(sent, backward=True, eng=True):
     if eng:
         dlmtr = 'and'
     else:
@@ -478,7 +484,25 @@ def _combine_presenter_sublists(lst):
     return sorted(lst, key=lambda x:x[1], reverse=True)
 
 
-def rerank_ts(lsts, ts, data):
+@profile
+def rerank_nom(data, lsts):
+    # re-rank based on occurrence frequency
+    new_lsts = deepcopy(lsts)
+    for l in new_lsts:
+        for e in l: e[1] = 0
+    for tweet in data:
+        sent = tweet['text']
+        for i, g in enumerate(new_lsts):
+            for x in g:
+                if x[0] in sent:
+                    x[1] += 1
+    candidates = [sorted(new_lsts[i], key=lambda x: x[1], reverse=True) for i in range(len(new_lsts))]
+
+    return candidates
+
+
+@profile
+def rerank_ts(data, lsts, ts):
     # zero counts
     new_lsts = deepcopy(lsts)
     names_lst = []
@@ -489,16 +513,17 @@ def rerank_ts(lsts, ts, data):
         for e in l: e[1] = 0
     for tweet in data:
         if 'dress' not in tweet['text'] or 'present' in tweet['text']:
-            t = tweet['timestamp_ms']
+            t = int(tweet['timestamp_ms'])
             i = 0
-            while i < len(ts) and t > ts[i]:
+            ts_len = len(ts)
+            while i < ts_len and t > ts[i]:
                 i += 1
             i -= 1
             if i > -1:
-                sent = tweet['text'].split()
+                text = tweet['text']
                 for j, x in enumerate(names_lst[i]):
                     for k, y in enumerate(x):
-                        if is_Sublist(sent, y.split()):
+                        if y in text:
                             new_lsts[i][j][1] += 1
     '''# average counts for pairs
     for i, lst in enumerate(new_lsts):
@@ -507,6 +532,7 @@ def rerank_ts(lsts, ts, data):
     return [sorted(lst, key=lambda x:x[1], reverse=True) for lst in new_lsts]
 
 
+@profile
 def rerank_ts_nominees(lsts, ts, data):
     # zero counts
     new_lsts = deepcopy(lsts)
@@ -518,9 +544,10 @@ def rerank_ts_nominees(lsts, ts, data):
         for e in l: e[1] = 0
     for tweet in data:
         if 'dress' not in tweet['text'] or 'nomin' in tweet['text']:
-            t = tweet['timestamp_ms']
+            t = int(tweet['timestamp_ms'])
             i = 0
-            while i < len(ts) and t > ts[i]:
+            ts_len = len(ts)
+            while i < ts_len and t > ts[i]:
                 i += 1
             i -= 1
             if i > -1:

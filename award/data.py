@@ -91,3 +91,6 @@ award_map = {'best screenplay - motion picture': ['best', 'screenplay'],
              'best performance by an actor in a television series - drama': ['best', 'actor', 'in', 'a', 'tv', 'series', 'drama'],
              'best performance by an actor in a television series - comedy or musical': ['best', 'actor', 'in', 'a', 'tv', 'series', 'comedy', 'or', 'musical']}
 
+award_map_inv = {}
+for k in award_map.keys():
+    award_map_inv[' '.join(award_map[k])] = k
