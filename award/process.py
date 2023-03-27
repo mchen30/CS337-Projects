@@ -6,10 +6,10 @@ import time
 from line_profiler_pycharm import profile
 
 
-@profile
-def extract_hosts(data):
+@ray.remote
+def extract_hosts(data, indices):
     ca_set = []
-    for tweet in data:
+    for tweet in data[indices[0]: indices[1]]:
         sent = tweet['text'].split()
         for i, word in enumerate(sent):
             # hosted by xxxxxxxx
@@ -29,37 +29,13 @@ def extract_hosts(data):
                 ca_set += look_backward(sent, i-1)
             elif word == 'hosting' and i > 0 and sent[i-1] != 'is' and sent[i-1] != 'are':
                 ca_set += look_backward(sent, i)
-
-    sorted_ca = unique_ngrams(ca_set)[:50]  # select only top fifty
-    sorted_ca = remove_duplicate_sublist(sorted_ca)
-    # remove all sublists at this point, re-rank based on occurrence frequency
-    ca = remove_all_sublists(sorted_ca)
-    ca_freq = []
-    for x in ca:
-        n = 0
-        for tweet in data:
-            sent = tweet['text'].split()
-            if is_Sublist(sent, x):
-                n += 1
-        ca_freq.append([x, n])
-    sorted_ca_freq = sorted(ca_freq, key=lambda x :x[1], reverse=True)
-
-    found = False
-    hosts = None
-    while not found:
-        if sorted_ca_freq[0][0] == ['the'] or sorted_ca_freq[0][0] == ['golden', 'globes'] or sorted_ca_freq[0][0] == ['to']:
-            sorted_ca_freq.remove(sorted_ca_freq[0])
-        else:
-            hosts = sorted_ca_freq[0][0]
-            # print('Host(s): ' + ' '.join(hosts))
-            found = True
-    return hosts
+    return ca_set
 
 
-@profile
-def extract_awards(data):
+@ray.remote
+def extract_awards(data, indices):
     ca_set_awards = []
-    for tweet in data:
+    for tweet in data[indices[0]: indices[1]]:
         sent = tweet['text'].split()
         for i, word in enumerate(sent):
             # best xxx goes to
@@ -73,23 +49,7 @@ def extract_awards(data):
             # best xxx - *winner
             # elif word == '-':
             #     ca_set_awards += look_backward(sent, i, start=['best'])
-
-    sorted_ca_awards = unique_ngrams(ca_set_awards)[:90]
-    sorted_ca_awards = remove_duplicate_sublist(sorted_ca_awards)
-    # remove all sublists at this point, re-rank based on occurrence frequency
-    ca_awards = remove_all_sublists(sorted_ca_awards)
-
-    ca_freq_awards = []
-    for x in ca_awards:
-        n = 0
-        for tweet in data:
-            sent = tweet['text'].split()
-            if is_Sublist(sent, x):
-                n += 1
-        ca_freq_awards.append([x, n])
-
-    sorted_ca_freq_awards = sorted(ca_freq_awards, key=lambda x :x[1], reverse=True)
-    return sorted_ca_freq_awards
+    return ca_set_awards
 
 
 @ray.remote
@@ -264,7 +224,7 @@ def extract_presenters(data, indices):
             # x and x present
             # x and x to present
             elif word == 'present' or word == 'presents':
-                if i > 0 and sent[i - 1] == 'to':
+                if i > 0 and (sent[i - 1] == 'to' or sent[i - 1] == 'will'):
                     continue
                 else:
                     p = find_presenters(sent[:i])
@@ -292,12 +252,35 @@ def main():
     global data_ref
     data_ref = ray.put(data)
 
-    print(data_len)
+    hosts_raw = ray_data_workers(extract_hosts, collect_combine, n_CPU, data_len, data_ref)
+    print("--- Begin postprocess() --- ")
+    t = time.time()
+    sorted_ca = unique_ngrams(hosts_raw)[:50]  # select only top fifty
+    sorted_ca = remove_duplicate_sublist(sorted_ca)
+    # remove all sub-lists, re-rank based on occurrence frequency in the full dataset
+    ca = remove_all_sublists(sorted_ca)
+    dt = time.time() - t
+    print(f"--- End unique_strs_ts(), used {dt}ms --- ")
+    host_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, ca)
+    hosts = filter_host_kwd(host_cand)
+
+    awards_raw = ray_data_workers(extract_awards, collect_combine, n_CPU, data_len, data_ref)
+    sorted_ca_awards = unique_ngrams(awards_raw)[:100]
+    sorted_ca_awards = remove_duplicate_sublist(sorted_ca_awards)
+
+    # remove all sub-lists, re-rank based on occurrence frequency in the full dataset
+    award_cand = remove_all_sublists(sorted_ca_awards)
+    award_cand = filter_award_kwd(award_cand)
+    award_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, award_cand)[:25]
+
     winners_raw = ray_data_workers(extract_winners, collect_combine_n, n_CPU, data_len, data_ref, awards)
     winner_grouped = ray_res_workers(untie_raw_winners, collect, winners_raw)
-    print(winner_grouped)
+    winner_lsts, _, _ = zip(*winner_grouped)
+    winners = [' '.join(x) for x in winner_lsts]
+
     order = np.argsort([x[2] for x in winner_grouped])
     timestamps = [winner_grouped[i][2] for i in order]
+
     nominees_raw = ray_data_workers(extract_nominees, collect_combine, n_CPU, data_len, data_ref)
     nominees_unique = unique_ngrams_ts(nominees_raw, start=timestamps[0])
     nominees_ref = ray.put(nominees_unique)
@@ -310,13 +293,18 @@ def main():
     nominee_grouped = ray_data_workers(rerank_nominees, rerank_combine, n_CPU, data_len, data_ref, nominee_grouped)
 
     # remove winners from nominees
-    for i, r in enumerate(nominee_grouped):
-        winner = ' '.join(winner_grouped[i][0])
-        for x in r:
-            if x[0] == winner:
-                r.remove(x)
+    for i, noms in enumerate(nominee_grouped):
+        remove = []
+        for j, nom in enumerate(noms):
+            if nom[0] == winners[i]:
+                remove.append(j)
+        remove = sorted(remove, reverse=True)
+        for idx in remove:
+            noms.remove(noms[idx])
 
-    # order by award list
+    nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
+
+    '''# order by award list
     nom_target = [ans['award_data'][award_map_inv[' '.join(a)]]['nominees'] for a in awards]
     nom_res = [[] for _ in range(len(nom_target))]
     true = 0
@@ -340,7 +328,7 @@ def main():
         print(r)
 
     for r in nominee_grouped:
-        print(r)
+        print(r)'''
 
     presenters_raw = ray_data_workers(extract_presenters, collect_combine, n_CPU, data_len, data_ref)
     ts_diff = np.diff(timestamps)
@@ -352,15 +340,11 @@ def main():
             timestamps_mid.append(timestamps_mid[i] + ts_diff[i] / 2 + ts_diff[i - 1] / 2)
 
     # combine identical strings
-    print("--- Begin unique_strs_ts() --- ")
-    t = time.time()
     presenters = unique_strs_ts(presenters_raw, start=timestamps_mid[0])
-    dt = time.time() - t
-    print(f"--- End unique_strs_ts(), used {dt}ms --- ")
     # filter by award announcement time intervals
-    presenters = ray_data_workers(filter_by_timestamp, collect_combine_n, n_CPU, data_len, presenters, timestamps_mid, True)
+    presenters = ray_data_workers(filter_by_timestamp, collect_combine_n, n_CPU, data_len, presenters, timestamps_mid, data_len<500000)
     # remove clearly irrelevant terms
-    presenters = ray_res_workers(disqualify_kwd_str, collect, presenters)
+    presenters = ray_res_workers(disqualify_kwd_str, collect, presenters, hosts)
     # combine identical items and merge sub-lists into super-lists
     presenters = ray_res_workers(combine_presenters, collect, presenters)
     # rerank by occurrence frequency within award timeslot
@@ -370,8 +354,10 @@ def main():
 
     # order by award list
     presenter_grouped = [presenters[list(order).index(i)] for i in range(len(awards))]
+    presenters = [cands[0][0] for cands in presenter_grouped]
+    print(presenters)
 
-    # order by award list
+    '''# order by award list
     p = [ans['award_data'][award_map_inv[' '.join(a)]]['presenters'] for a in awards]
     p_res = [[] for _ in range(len(p))]
     true = 0
@@ -397,7 +383,7 @@ def main():
         print(r)
 
     for r in presenter_grouped:
-        print(r)
+        print(r)'''
 
 
 if __name__ == '__main__':

@@ -118,6 +118,31 @@ def is_StrictSublist(l, s):
     return sub_set
 
 
+def filter_host_kwd(lst):
+    found = False
+    hosts = None
+    while not found:
+        if lst[0][0] == ['the'] or lst[0][0] == ['golden', 'globes'] or lst[0][0] == ['to']:
+            lst.remove(lst[0])
+        else:
+            hosts = lst[0][0]
+            found = True
+    return ' '.join(hosts).split(' and ')
+
+
+def filter_award_kwd(lst):
+    excl_kwds = ['show', 'performance', 'for', 'golden', 'globe']
+    remove = []
+    for i, award in enumerate(lst):
+        for word in award:
+            if word in excl_kwds:
+                remove.append(i)
+    remove = sorted(remove, reverse=True)
+    for idx in remove:
+        lst.remove(lst[idx])
+    return lst
+
+
 def remove_duplicate_sublist(sorted_ca):
     removal = []
     for ca1 in sorted_ca:
@@ -178,7 +203,6 @@ def untie(sorted_ca):
     return [best, freq, timestamp]
 
 
-@profile
 # merge and count
 def unique_ngrams_ts(ngrams_lst, start=None):
     uni = []
@@ -355,7 +379,7 @@ def disqualify_kwd(results):
 
 
 @ray.remote
-def disqualify_kwd_str(results):
+def disqualify_kwd_str(results, kwds_full):
     kwds = ['and', 'for', 'to', 'not', 'have', 'can', ' may', ' do', 'does', 'did', 'it', 'they', 'should', 'if',
             'but', 'that', 'im', 'shit', 'than', 'kinda', 'bc', 'though', 'kidding', 'ok', 'wtf', 'omg', 'def', 'boo',
             'ill', 'u', 'fuck', 'oscar', 'oscars', 'seriously', 'completely', 'who', 'sob', 'pretty', 'meh', 'totally',
@@ -388,20 +412,23 @@ def disqualify_kwd_str(results):
             'woman', 'aux', 'ransom', 'hon', 'let', 'watch', 'verdadero', 'common', 'loving', 'love', 'seeing', 'jokes',
             'wife', 'christ', 'talkin', 'always', 'turn', 'your', 'looks', 'seen', 'wifes', 'says', 'press', 'saying',
             'award', 'goes', 'moment', 'wearing', 'fun', 'alums', 'baby', 'glasses', 'awkward', 'most', 'skipped',
-            'television', 'picture', 'every', 'course', 'nbc', 'best', 'known', 'go', 'about', 'missed',]
+            'television', 'picture', 'every', 'course', 'nbc', 'best', 'known', 'go', 'about', 'missed', 'before',
+            'after', 'fucking', 'gives', 'rather', 'very', 'sm', 'thus', 'lovely']
+
     kwds_partial = ['president', 'yaa', 'hah', 'www', 'hmm', 'ooo', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                    'official', ]
+                    'official', 'tweet']
 
     res = []
     for e in results:
         # for p1 and p2 in e
         found = False
         for p in e[0]:
+            if p in kwds_full: found = True; break
             i = 0
             kwds_par_len = len(kwds_partial)
             for x in p.split(' '):
                 if x in kwds:
-                    found = True
+                    found = True; break
             while not found and i < kwds_par_len:
                 if kwds_partial[i] in p:
                     found = True
@@ -521,6 +548,23 @@ def combine_presenter_sublists(lst):
                 lst[j][1] /= 0.75
     # prefer pairs by summing counts for individuals in pairs
     return sorted(lst, key=lambda x:x[1], reverse=True)
+
+
+@ray.remote
+def rerank(data, indices, lsts):
+    # zero counts
+    freq_lsts = [[l, 0] for l in lsts]
+    for tweet in data[indices[0]: indices[1]]:
+        for l in freq_lsts:
+            if ' '.join(l[0]) in tweet['text']:
+                l[1] += 1
+    # lsts = sorted(lsts, key=lambda x: x[1], reverse=True)
+    return freq_lsts
+
+
+# return string names for awards
+def combine_sort(results):
+    return sorted(reduce(lambda x, y: list(map(lambda a, b: [a[0], a[1] + b[1]], x, y)), results), key=lambda x: x[1], reverse=True)
 
 
 @ray.remote
