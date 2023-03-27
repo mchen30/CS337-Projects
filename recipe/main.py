@@ -21,7 +21,7 @@ def transform():
     print('\tVegetarian/Non-vegetarian')
     print('\tHealthy/Unhealthy')
     print('\tHalf/Double the serving size')
-    print('\tMake Chinese/Mexican')
+    print('\tTo Chinese/Mexican')
     print('\tLactose-free')
     while True:
         xform = input().lower()
@@ -44,10 +44,10 @@ def transform():
         elif xform == 'double the serving size':
             recipe.double()
             break
-        elif xform == 'make chinese':
+        elif xform == 'to chinese':
             recipe.to_cuisine('chinese')
             break
-        elif xform == 'make mexican':
+        elif xform == 'to mexican':
             recipe.to_cuisine('mexican')
             break
         elif xform == 'lactose-free':
