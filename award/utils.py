@@ -5,7 +5,7 @@ from functools import reduce
 import ray
 
 
-def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None):
+def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None, max_len=99):
     ngrams = []
     offset = None
     if include:
@@ -14,7 +14,7 @@ def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=No
         offset = len(start)
     elif end is not None:
         offset = len(end)
-    for length in range(1, len(sent) - ind):
+    for length in range(1, min(max_len + 1, len(sent) - ind)):
         if start_exclude is not None and sent[ind+1] in start_exclude:
             break
         elif start is None and end is None:
@@ -32,7 +32,7 @@ def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=No
     return ngrams
 
 
-def look_backward(sent, ind, start=None, end=None, include=True, end_exclude=None):
+def look_backward(sent, ind, start=None, end=None, include=True, end_exclude=None, max_len=99):
     ngrams = []
     offset = None
     if include:
@@ -41,7 +41,7 @@ def look_backward(sent, ind, start=None, end=None, include=True, end_exclude=Non
         offset = len(start)
     elif end is not None:
         offset = len(end)
-    for length in range(1, ind+1):
+    for length in range(1, min(max_len + 1, ind+1)):
         if end_exclude is not None and sent[ind - 1] in end_exclude:
             break
         elif start is None and end is None:
@@ -124,8 +124,10 @@ def is_StrictSublist(l, s):
 def filter_host_kwd(lst):
     found = False
     hosts = None
+    kwds = ['the', 'golden globes', 'to', 'best', 'our', 'can']
     while not found:
-        if lst[0][0] == ['the'] or lst[0][0] == ['golden', 'globes'] or lst[0][0] == ['to']:
+        lst_str = ' '.join(lst[0][0])
+        if lst_str in kwds:
             lst.remove(lst[0])
         else:
             hosts = lst[0][0]
@@ -324,7 +326,7 @@ def disqualify_kwd(results):
             'tl', 'woah', 'penis', 'fukk', 'awks', 'uzu', 'jld', 'tbh', 'bomer', 'desplat', 'richly', 'smh', 'cb', 'hating',
             'scene', 'd', 'globes', 's', 'gifs', 'gif', 'unfortunately', 'goddammit', 'soundtrack', 'nomination', 'news',
             'aargh', 'suprised', 'faves', 'actresses', 'actress', 'nominated', 'ya', 'disappointed', 'nawl', 'sia',
-            ]
+            'miniseries']
 
     kwds_partial = ['sss', 'aaa', 'mmm', 'uuu', 'ooo', 'kkk', 'rrr', 'fff', 'ww', '_', 'truly believe', 'i think', 'suck',
                     'just won', 'pfft', 'ripped off', 'win something', "doesnt think", 'looks amazing', 'is amazing'
@@ -340,7 +342,7 @@ def disqualify_kwd(results):
                     'always felt', 'i guess', 'this show', 'like the', 'like i', 'feel like', 'ive heard', 'this day',
                     'your favorites', 'i love', 'all in all', 'is theft', 'all the way', 'globe award', 'a lot', 'proud of',
                     'was incredible', 'hate this', 'a tuesday', 'the cast', 'guess i', 'wins the', 'first off', 'me after',
-                    'all know', 'heavy hitters', 'understand how', 'use these', 'weve all', 'all the']
+                    'all know', 'heavy hitters', 'understand how', 'use these', 'weve all', 'all the', 'go all',]
 
     kwds_full = ['the', 'me', 'follow', 'new', 'goldenglobes', 'guy', 'at', 'from', 'in', 'sound', 'so', 'girl',
                  'too', 'her', 'his', 'les', 'lee', 'amy', 'tina', 'say', 'even', 'dick', 'further', 'god',

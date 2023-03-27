@@ -2,8 +2,7 @@ from data import *
 from utils import *
 import numpy as np
 import ray
-import time
-from line_profiler_pycharm import profile
+import sys
 
 
 @ray.remote
@@ -108,7 +107,7 @@ def extract_winners(data, indices, awards):
                 elif j > 6 and sent[j - 1] == 'as' and sent[j - 2] == 'win' and sent[j - 3] == 'globe' and sent[j - 4] == 'golden' and sent[j - 5] == 'her' and sent[j - 6] == 'for':
                     cand_winner_text = look_backward(sent, j, end=['for', 'her', 'golden', 'globe', 'win', 'as'], include=False)
                 # xxx for AWARD
-                elif j > 1 and sent[j - 1] == 'for':
+                elif j > 1 and sent[j - 1] == 'for' and sent[j - 2] != 'wins':
                     cand_winner_text = look_backward(sent, j, end=['for'], include=False)
                 # xxx wins/won/has won AWARD
                 elif j > 1 and sent[j - 1] == 'wins':
@@ -240,29 +239,18 @@ def extract_presenters(data, indices):
     return presenters
 
 
-@profile
-def main():
-    ans = {"hosts": ["amy poehler", "tina fey"], "award_data": {"best screenplay - motion picture": {"nominees": ["zero dark thirty", "lincoln", "silver linings playbook", "argo"], "presenters": ["robert pattinson", "amanda seyfried"], "winner": "django unchained"}, "best director - motion picture": {"nominees": ["kathryn bigelow", "ang lee", "steven spielberg", "quentin tarantino"], "presenters": ["halle berry"], "winner": "ben affleck"}, "best performance by an actress in a television series - comedy or musical": {"nominees": ["zooey deschanel", "tina fey", "julia louis-dreyfus", "amy poehler"], "presenters": ["aziz ansari", "jason bateman"], "winner": "lena dunham"}, "best foreign language film": {"nominees": ["the intouchables", "kon tiki", "a royal affair", "rust and bone"], "presenters": ["arnold schwarzenegger", "sylvester stallone"], "winner": "amour"}, "best performance by an actor in a supporting role in a motion picture": {"nominees": ["alan arkin", "leonardo dicaprio", "philip seymour hoffman", "tommy lee jones"], "presenters": ["bradley cooper", "kate hudson"], "winner": "christoph waltz"}, "best performance by an actress in a supporting role in a series, mini-series or motion picture made for television": {"nominees": ["hayden panettiere", "archie panjabi", "sarah paulson", "sofia vergara"], "presenters": ["dennis quaid", "kerry washington"], "winner": "maggie smith"}, "best motion picture - comedy or musical": {"nominees": ["the best exotic marigold hotel", "moonrise kingdom", "salmon fishing in the yemen", "silver linings playbook"], "presenters": ["dustin hoffman"], "winner": "les miserables"}, "best performance by an actress in a motion picture - comedy or musical": {"nominees": ["emily blunt", "judi dench", "maggie smith", "meryl streep"], "presenters": ["will ferrell", "kristen wiig"], "winner": "jennifer lawrence"}, "best mini-series or motion picture made for television": {"nominees": ["the girl", "hatfields & mccoys", "the hour", "political animals"], "presenters": ["don cheadle", "eva longoria"], "winner": "game change"}, "best original score - motion picture": {"nominees": ["argo", "anna karenina", "cloud atlas", "lincoln"], "presenters": ["jennifer lopez", "jason statham"], "winner": "life of pi"}, "best performance by an actress in a television series - drama": {"nominees": ["connie britton", "glenn close", "michelle dockery", "julianna margulies"], "presenters": ["nathan fillion", "lea michele"], "winner": "claire danes"}, "best performance by an actress in a motion picture - drama": {"nominees": ["marion cotillard", "sally field", "helen mirren", "naomi watts", "rachel weisz"], "presenters": ["george clooney"], "winner": "jessica chastain"}, "cecil b. demille award": {"nominees": [], "presenters": ["robert downey, jr."], "winner": "jodie foster"}, "best performance by an actor in a motion picture - comedy or musical": {"nominees": ["jack black", "bradley cooper", "ewan mcgregor", "bill murray"], "presenters": ["jennifer garner"], "winner": "hugh jackman"}, "best motion picture - drama": {"nominees": ["django unchained", "life of pi", "lincoln", "zero dark thirty"], "presenters": ["julia roberts"], "winner": "argo"}, "best performance by an actor in a supporting role in a series, mini-series or motion picture made for television": {"nominees": ["max greenfield", "danny huston", "mandy patinkin", "eric stonestreet"], "presenters": ["kristen bell", "john krasinski"], "winner": "ed harris"}, "best performance by an actress in a supporting role in a motion picture": {"nominees": ["amy adams", "sally field", "helen hunt", "nicole kidman"], "presenters": ["megan fox", "jonah hill"], "winner": "anne hathaway"}, "best television series - drama": {"nominees": ["boardwalk empire", "breaking bad", "downton abbey (masterpiece)", "the newsroom"], "presenters": ["salma hayek", "paul rudd"], "winner": "homeland"}, "best performance by an actor in a mini-series or motion picture made for television": {"nominees": ["benedict cumberbatch", "woody harrelson", "toby jones", "clive owen"], "presenters": ["jessica alba", "kiefer sutherland"], "winner": "kevin costner"}, "best performance by an actress in a mini-series or motion picture made for television": {"nominees": ["nicole kidman", "jessica lange", "sienna miller", "sigourney weaver"], "presenters": ["don cheadle", "eva longoria"], "winner": "julianne moore"}, "best animated feature film": {"nominees": ["frankenweenie", "hotel transylvania", "rise of the guardians", "wreck-it ralph"], "presenters": ["sacha baron cohen"], "winner": "brave"}, "best original song - motion picture": {"nominees": ["act of valor", "stand up guys", "the hunger games", "les miserables"], "presenters": ["jennifer lopez", "jason statham"], "winner": "skyfall"}, "best performance by an actor in a motion picture - drama": {"nominees": ["richard gere", "john hawkes", "joaquin phoenix", "denzel washington"], "presenters": ["george clooney"], "winner": "daniel day-lewis"}, "best television series - comedy or musical": {"nominees": ["the big bang theory", "episodes", "modern family", "smash"], "presenters": ["jimmy fallon", "jay leno"], "winner": "girls"}, "best performance by an actor in a television series - drama": {"nominees": ["steve buscemi", "bryan cranston", "jeff daniels", "jon hamm"], "presenters": ["salma hayek", "paul rudd"], "winner": "damian lewis"}, "best performance by an actor in a television series - comedy or musical": {"nominees": ["alec baldwin", "louis c.k.", "matt leblanc", "jim parsons"], "presenters": ["lucy liu", "debra messing"], "winner": "don cheadle"}}}
-    ans15 = {"hosts": ["amy poehler", "tina fey"], "award_data": {"best screenplay - motion picture": {"nominees": ["the grand budapest hotel", "gone girl", "boyhood", "the imitation game"], "presenters": ["bill hader", "kristen wiig"], "winner": "birdman"}, "best director - motion picture": {"nominees": ["wes anderson", "ava duvernay", "david fincher", "alejandro inarritu gonzalez"], "presenters": ["harrison ford"], "winner": "richard linklater"}, "best performance by an actress in a television series - comedy or musical": {"nominees": ["lena dunham", "edie falco", "julia louis-dreyfus", "taylor schilling"], "presenters": ["bryan cranston", "kerry washington"], "winner": "gina rodriguez"}, "best foreign language film": {"nominees": ["force majeure", "gett: the trial of viviane amsalem", "ida", "tangerines"], "presenters": ["colin farrell", "lupita nyong'o"], "winner": "leviathan"}, "best performance by an actor in a supporting role in a motion picture": {"nominees": ["robert duvall", "edward norton", "mark ruffalo"], "presenters": ["jennifer aniston", "benedict cumberbatch"], "winner": "j.k. simmons"}, "best performance by an actress in a supporting role in a series, mini-series or motion picture made for television": {"nominees": ["uzo aduba", "kathy bates", "allison janney", "michelle monaghan"], "presenters": ["jamie dornan", "dakota johnson"], "winner": "joanne froggatt"}, "best motion picture - comedy or musical": {"nominees": ["birdman", "into the woods", "pride", "st. vincent"], "presenters": ["robert downey, jr."], "winner": "the grand budapest hotel"}, "best performance by an actress in a motion picture - comedy or musical": {"nominees": ["emily blunt", "helen mirren", "julianne moore", "quvenzhane wallis"], "presenters": ["ricky gervais"], "winner": "amy adams"}, "best mini-series or motion picture made for television": {"nominees": ["the missing", "the normal heart", "olive kitteridge", "true detective"], "presenters": ["jennifer lopez", "jeremy renner"], "winner": "fargo"}, "best original score - motion picture": {"nominees": ["the imitation game", "birdman", "gone girl", "interstellar"], "presenters": ["sienna miller", "vince vaughn"], "winner": "the theory of everything"}, "best performance by an actress in a television series - drama": {"nominees": ["claire danes", "viola davis", "julianna margulies", "robin wright"], "presenters": ["anna faris", "chris pratt"], "winner": "ruth wilson"}, "best performance by an actress in a motion picture - drama": {"nominees": ["jennifer aniston", "felicity jones", "rosamund pike", "reese witherspoon"], "presenters": ["matthew mcconaughey"], "winner": "julianne moore"}, "cecil b. demille award": {"nominees": [], "presenters": ["don cheadle", "julianna margulies"], "winner": "george clooney"}, "best performance by an actor in a motion picture - comedy or musical": {"nominees": ["ralph fiennes", "bill murray", "joaquin phoenix", "christoph waltz"], "presenters": ["amy adams"], "winner": "michael keaton"}, "best motion picture - drama": {"nominees": ["foxcatcher", "the imitation game", "selma", "the theory of everything"], "presenters": ["meryl streep"], "winner": "boyhood"}, "best performance by an actor in a supporting role in a series, mini-series or motion picture made for television": {"nominees": ["alan cumming", "colin hanks", "bill murray", "jon voight"], "presenters": ["katie holmes", "seth meyers"], "winner": "matt bomer"}, "best performance by an actress in a supporting role in a motion picture": {"nominees": ["jessica chastain", "keira knightley", "emma stone", "meryl streep"], "presenters": ["jared leto"], "winner": "patricia arquette"}, "best television series - drama": {"nominees": ["downton abbey (masterpiece)", "game of thrones", "the good wife", "house of cards"], "presenters": ["adam levine", "paul rudd"], "winner": "the affair"}, "best performance by an actor in a mini-series or motion picture made for television": {"nominees": ["martin freeman", "woody harrelson", "matthew mcconaughey", "mark ruffalo"], "presenters": ["jennifer lopez", "jeremy renner"], "winner": "billy bob thornton"}, "best performance by an actress in a mini-series or motion picture made for television": {"nominees": ["jessica lange", "frances mcdormand", "frances o'connor", "allison tolman"], "presenters": ["kate beckinsale", "adrien brody"], "winner": "maggie gyllenhaal"}, "best animated feature film": {"nominees": ["big hero 6", "the book of life", "the boxtrolls", "the lego movie"], "presenters": ["kevin hart", "salma hayek"], "winner": "how to train your dragon 2"}, "best original song - motion picture": {"nominees": ["big eyes", "noah", "annie", "the hunger games: mockingjay - part 1"], "presenters": ["prince"], "winner": "selma"}, "best performance by an actor in a motion picture - drama": {"nominees": ["steve carell", "benedict cumberbatch", "jake gyllenhaal", "david oyelowo"], "presenters": ["gwyneth paltrow"], "winner": "eddie redmayne"}, "best television series - comedy or musical": {"nominees": ["girls", "jane the virgin", "orange is the new black", "silicon valley"], "presenters": ["bryan cranston", "kerry washington"], "winner": "transparent"}, "best performance by an actor in a television series - drama": {"nominees": ["clive owen", "liev schreiber", "james spader", "dominic west"], "presenters": ["david duchovny", "katherine heigl"], "winner": "kevin spacey"}, "best performance by an actor in a television series - comedy or musical": {"nominees": ["louis c.k.", "don cheadle", "ricky gervais", "william h. macy"], "presenters": ["jane fonda", "lily tomlin"], "winner": "jeffrey tambor"}}}
-
-    global n_CPU
-    data = load('./gg2013.json')
-    global data_len
-    data_len = len(data)
-    global data_ref
-    data_ref = ray.put(data)
-
+def process(data_len, data_ref, n_CPU=4):
+    ray.init(num_cpus=n_CPU, ignore_reinit_error=True)
     hosts_raw = ray_data_workers(extract_hosts, collect_combine, n_CPU, data_len, data_ref)
-    print("--- Begin postprocess() --- ")
-    t = time.time()
     sorted_ca = unique_ngrams(hosts_raw)[:50]  # select only top fifty
     sorted_ca = remove_duplicate_sublist(sorted_ca)
     # remove all sub-lists, re-rank based on occurrence frequency in the full dataset
     ca = remove_all_sublists(sorted_ca)
-    dt = time.time() - t
-    print(f"--- End unique_ngrams(), used {dt}s --- ")
-    host_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, ca)
-    hosts = filter_host_kwd(host_cand)
+    if data_len < 500000:
+        host_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, ca)
+        hosts = filter_host_kwd(host_cand)
+    else:
+        hosts = ca[0]
 
     awards_raw = ray_data_workers(extract_awards, collect_combine, n_CPU, data_len, data_ref)
     sorted_ca_awards = unique_ngrams(awards_raw)[:100]
@@ -272,8 +260,9 @@ def main():
     award_cand = remove_all_sublists(sorted_ca_awards)
     award_cand = filter_award_kwd(award_cand)
     award_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, award_cand)[:25]
+    award_cand = [' '.join(cand[0]) for cand in award_cand]
 
-    winners_raw = ray_data_workers(extract_winners, collect_combine_n, n_CPU, data_len, data_ref, awards)
+    winners_raw = ray_data_workers(extract_winners, collect_combine_n, n_CPU, data_len, data_ref, award_lst)
     winner_grouped = ray_res_workers(untie_raw_winners, collect, winners_raw)
     winner_lsts, _, _ = zip(*winner_grouped)
     winners = [' '.join(x) for x in winner_lsts]
@@ -304,32 +293,6 @@ def main():
 
     nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
 
-    # order by award list
-    nom_target = [ans['award_data'][award_map_inv[' '.join(a)]]['nominees'] for a in awards]
-    nom_res = [[] for _ in range(len(nom_target))]
-    true = 0
-    tot = 0
-    final_nominees = []
-
-    for i, award in enumerate(nom_target):
-        for n in award:
-            cand_list, _ = zip(*nominee_grouped[i])
-            final_nominees.append(cand_list[:4])
-            if n in cand_list[:5]:
-                nom_res[i].append([n, True])
-                true+=1
-                tot+=1
-            else:
-                nom_res[i].append([n, False])
-                tot+=1
-
-    print(true/tot)
-    for r in nom_res:
-        print(r)
-
-    '''for r in nominee_grouped:
-        print(r)'''
-
     presenters_raw = ray_data_workers(extract_presenters, collect_combine, n_CPU, data_len, data_ref)
     ts_diff = np.diff(timestamps)
     timestamps_mid = [int(timestamps[0] - ts_diff[0]/2)]
@@ -353,38 +316,35 @@ def main():
     presenters = ray_res_workers(combine_presenter_sublists, collect, presenters)
 
     # order by award list
-    presenter_grouped = [presenters[list(order).index(i)] for i in range(len(awards))]
+    presenter_grouped = [presenters[list(order).index(i)] for i in range(len(award_lst))]
     presenters = [cands[0][0] for cands in presenter_grouped]
-    print(presenters)
 
-    # order by award list
-    p = [ans['award_data'][award_map_inv[' '.join(a)]]['presenters'] for a in awards]
-    p_res = [[] for _ in range(len(p))]
-    true = 0
-    tot = 0
-    for i, award in enumerate(p):
-        for n in award:
-            if len(presenter_grouped[i]) > 0:
-                cand_list, _ = zip(*presenter_grouped[i])
-                if n in np.concatenate(cand_list[:1]):
-                    p_res[i].append([n, True])
-                    true+=1
-                    tot+=1
-                else:
-                    p_res[i].append([n, False])
-                    tot+=1
-            else:
-                p_res[i].append([n, False])
-                tot+= 1
-
-    print(true/tot)
-
-    for r in p_res:
-        print(r)
-
-    '''for r in presenter_grouped:
-        print(r)'''
+    return hosts, award_cand, winners, nominees, presenters
 
 
 if __name__ == '__main__':
-    main()
+    n_CPU = 4
+    if len(sys.argv) > 1:
+        year = sys.argv[1]
+    else:
+        year = '2015'
+    data = load(f'./gg{year}.json', n_CPU)
+    data_len = len(data)
+    data_ref = ray.put(data)
+    hosts, award_cand, winners, nominees, presenters = process(data_len, data_ref, n_CPU)
+    json_output = {}
+    print('Host(s): ' + ', '.join(hosts))
+    json_output['hosts'] = hosts
+    json_output['award_data'] = {}
+    print('Awards identified (top 25):\n\t' + '\n\t'.join(award_cand))
+    print('\nUsing hardcoded award names, the following award information was found:')
+    for i, award in enumerate(award_lst):
+        formal_name = award_map_inv[' '.join(award)]
+        print('\nAward:\n\t' + formal_name)
+        json_output['award_data'][formal_name] = {}
+        print('Presenter(s):\n\t' + ', '.join(presenters[i]))
+        json_output['award_data'][formal_name]['presenters'] = presenters[i]
+        print('Nominees:\n\t' + '\n\t'.join(nominees[i]))
+        json_output['award_data'][formal_name]['nominees'] = nominees[i]
+        print('Winner:\n\t' + winners[i])
+        json_output['award_data'][formal_name]['winner'] = winners[i]

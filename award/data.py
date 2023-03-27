@@ -4,9 +4,6 @@ import unidecode
 from line_profiler_pycharm import profile
 import ray
 
-n_CPU = 4
-ray.init(num_cpus=n_CPU)
-
 
 @ray.remote
 def clean(data, indices):
@@ -39,7 +36,8 @@ def clean(data, indices):
     return new_data
 
 
-def load(path):
+def load(path, n_CPU):
+    ray.init(num_cpus=n_CPU, ignore_reinit_error=True)
     data = json.load(open(path))
     data_ref = ray.put(data)
     new_data_refs = []
@@ -51,10 +49,7 @@ def load(path):
     return new_data
 
 
-#gg2013 = load('./gg2013.json')
-#gg2015 = load('./gg2015.json')
-
-awards = [['best', 'motion', 'picture', 'drama'],
+award_lst = [['best', 'motion', 'picture', 'drama'],
           ['best', 'motion', 'picture', 'comedy', 'or', 'musical'],
           ['best', 'actor', 'in', 'a', 'motion', 'picture', 'drama'],
           ['best', 'actress', 'in', 'a', 'motion', 'picture', 'drama'],
