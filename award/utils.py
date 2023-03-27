@@ -278,28 +278,15 @@ def filter_by_timestamp(candidates, indices, sorted_ts, relaxed):
     results = [[] for _ in range(len(sorted_ts))]
     for cand in candidates[indices[0]: indices[1]]:
         if cand[2] < sorted_ts[0]:
-            '''for j in range(len(sorted_ts)):
-                results[j].append([cand[0], cand[1]])'''
             continue
         i = 0
         while i < len(sorted_ts) and cand[2] > sorted_ts[i]:
             i += 1
         results[i - 1].append([cand[0], cand[1]])
         if relaxed:
-            '''if i < len(results):
-                results[i].append([cand[0], cand[1]])'''
             if i > 1:
                 results[i - 2].append([cand[0], cand[1]])
-            '''if i > 2:
-                results[i - 3].append([cand[0], cand[1]])
-            if i > 3:
-                results[i - 4].append([cand[0], cand[1]])
-            if i > 4:
-                results[i - 5].append([cand[0], cand[1]])
-            if i > 5:
-                results[i - 6].append([cand[0], cand[1]])
-            if i > 6:
-                results[i - 7].append([cand[0], cand[1]])'''
+
     return results
 
 
