@@ -130,7 +130,7 @@ def remove_duplicate_sublist(sorted_ca):
     return sorted_ca
 
 
-# removes in-place
+@ray.remote
 def remove_duplicate_sublist_str(sorted_ca):
     removal = []
     for ca1 in sorted_ca:
@@ -178,6 +178,7 @@ def untie(sorted_ca):
     return [best, freq, timestamp]
 
 
+@profile
 # merge and count
 def unique_ngrams_ts(ngrams_lst, start=None):
     uni = []
@@ -240,9 +241,10 @@ def unique_strs_ts(strs_lst, start=None):
     return sorted_cnt
 
 
-def filter_by_timestamp(candidates, sorted_ts, relaxed=False):
+@ray.remote
+def filter_by_timestamp(candidates, indices, sorted_ts, relaxed):
     results = [[] for _ in range(len(sorted_ts))]
-    for cand in candidates:
+    for cand in candidates[indices[0]: indices[1]]:
         if cand[2] < sorted_ts[0]:
             '''for j in range(len(sorted_ts)):
                 results[j].append([cand[0], cand[1]])'''
@@ -269,6 +271,7 @@ def filter_by_timestamp(candidates, sorted_ts, relaxed=False):
     return results
 
 
+@ray.remote
 def disqualify_kwd(results):
     kwds = ['and', 'for', 'to', 'not', 'have', 'can', ' may', ' do', 'does', 'did', 'it', 'they', 'should', 'if',
             'but', 'that', 'im', 'shit', 'than', 'kinda', 'bc', 'though', 'kidding', 'ok', 'wtf', 'omg', 'def', 'boo',
@@ -277,53 +280,81 @@ def disqualify_kwd(results):
             'yeah', 'congrats', 'oh', 'peeved', 'sad', 'cant', 'except', 'surprised', 'upset', 'cry', 'crying',
             'explain', 'parlay', 'shouldve', 'methinks', 'think', 'glad', 'produced', 'produce', 'didnt', 'what', 'robbed',
             'shocked', 'ddl', 'she', 'he', 'they', 'really', 'my', 'faggot', 'you', 'hubby', 'well', 'shock', 'happier',
-            'cannot', 'n', 'category', 'garbage', 'obviously', 'movie', 'movies', 'yay', 'such', 'gotta', 'wait',
-            'tonights', 'also', 'definitly', 'ew', 'just', 'or', 'tonights', 'tonight', 'bunch', 'since', 'sure',
+            'cannot', 'n', 'category', 'garbage', 'obviously', 'movies', 'yay', 'such', 'gotta', 'wait',
+            'tonights', 'also', 'definitly', 'ew', 'just', 'or', 'tonight', 'bunch', 'since', 'sure',
             'performer', 'overrated', 'believe', 'actor', 'actress', 'ugh', 'woo', 'has', 't', 'nominee', 'nominees',
             'happy', 'suddenly', 'o', 'based', 'heck', 'gutted', 'stupid', 'usually' 'dumbass', 'bullshit', 'surprises',
             'there', 'those', 'theres', 'surely', 'damn', 'least', 'yeh', 'ton', 'tons', 'committed', 'gonna', 'come',
             'comes', 'came', 'snap', 'deff', 'gang', 'bb', 'mean', 'hair', 'dress', 'yes', 'awards', 'him', 'shouldnt',
             'tell', 'rigged', 'totes', 'probably', 'haha', 'suppose', 'because', 'song', 'why', 'when', 'win', 'aw',
-            'film', 'bbt', 'no']
-    kwds_partial = ['sss', 'ooo', 'kkk', 'rrr', 'fff', 'ww', '_', 'truly believe', 'i think', 'suck',
+            'film', 'bbt', 'no', 'yall', 'urgh', 'dang', 'welp', 'gf', 'fcking', 'tvd', 'favs', 'tig', 'apparently',
+            'honestly', 'dam', 'ass', 'fucking', 'nope', 'motherfucker', 'goldenglobes', 'bae', 'dammit', 'netflix',
+            'television', 'legit', 'sayin', 'snubbed', 'snub', 'barf', 'ahs', 'huh', 'oitnb', 'fave', 'hbo', 'boobs',
+            'noo', 'freaking', 'soandso', 'agh', 'ointb', 'srsly', 'naw', 'disney', 'dag', 'salty', 'yep', 'dmx',
+            'tl', 'woah', 'penis', 'fukk', 'awks', 'uzu', 'jld', 'tbh', 'bomer', 'desplat', 'richly', 'smh', 'cb', 'hating',
+            'scene', 'd', 'globes', 's', 'gifs', 'gif', 'unfortunately', 'goddammit', 'soundtrack', 'nomination', 'news',
+            'aargh', 'suprised', 'faves', 'actresses', 'actress', 'nominated', 'ya', 'disappointed', 'nawl', 'sia',
+            ]
+
+    kwds_partial = ['sss', 'aaa', 'mmm', 'uuu', 'ooo', 'kkk', 'rrr', 'fff', 'ww', '_', 'truly believe', 'i think', 'suck',
                     'just won', 'pfft', 'ripped off', 'win something', "doesnt think", 'looks amazing', 'is amazing'
                     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                     'i just', 'pleased with', 'golden globes', 'wow', 'at the', 'gah', 'just wait', 'i suppose',
                     'we just', 'at the', 'best performance', 'hh', 'gah', 'i mean', 'only reason', 'find out', 'nono',
                     'tv series', 'thank god', 'thank zeus', 'in the name', 'other news', 'behind on', 'nbc', 'right now',
-                    'too bad', 'i know', 'its great', 'dear god']
+                    'too bad', 'i know', 'its great', 'dear god', 'best picture', 'looks like', 'i feel', 'best screenplay',
+                    'of them', 'would know', 'globes then', 'golden globe', 'i saw', 'the cw', 'be honest', 'the hell',
+                    'i call', 'we all', 'once again', 'the good', 'so sorry', 'them all', 'too soon', 'leave after',
+                    'all the other', 'was awesome', 'found out', 'her friend', 'every person', 'join me', 'everybody knows',
+                    'remind us', 'was terrible', 'feel comfortable', 'call the police', 'i thought', 'as long as',
+                    'always felt', 'i guess', 'this show', 'like the', 'like i', 'feel like', 'ive heard', 'this day',
+                    'your favorites', 'i love', 'all in all', 'is theft', 'all the way', 'globe award', 'a lot', 'proud of',
+                    'was incredible', 'hate this', 'a tuesday', 'the cast', 'guess i', 'wins the', 'first off', 'me after',
+                    'all know', 'heavy hitters', 'understand how', 'use these', 'weve all', 'all the']
+
     kwds_full = ['the', 'me', 'follow', 'new', 'goldenglobes', 'guy', 'at', 'from', 'in', 'sound', 'so', 'girl',
-                 'too', 'her', 'his', 'les', 'lee', 'amy', 'tina', 'say', 'even', 'dick', 'further', 'god']
+                 'too', 'her', 'his', 'les', 'lee', 'amy', 'tina', 'say', 'even', 'dick', 'further', 'god',
+                 'like', 'agree', 'listen', 'truly', 'wasnt', 'ga', 'where', 'ub', 'with the', 'actually', 'beautiful',
+                 'actors', 'picks', 'still', 'use', 'about', 'was the', 'definitely', 'sigh', 'maybe', 'choice',
+                 'which', 'ummm', 'mad', 'hoc', 'this is', 'we', 'got', 'everyone', 'so gett', 'give', 'way', 'more',
+                 'globes', 'on', 'watch', 'score', 'imo', 'game', 'channel', 'gone', 'list', 'perfect', 'coming',
+                 'out', 'her friend', 'two', 'cool', 'move', 'off', 'common', 'lord', 'hell', 'queen', 'awesome',
+                 'disappointed', 'flip over', 'wrong', 'someone', 'sweet', 'tomorrow', 'cher', 'switch', 'hoc', 'mention',
+                 'now', 'dam', 'sorry', 'nominated', 'mm', 'by', 'some', 'nor', 'either', 'them', 'again', 'submit',
+                 'absolutely', 'else', 'anyone', 'this', 'on', 'watch', 'hear', 'award', 'both', 'hadnt', 'sadly',
+                 'settle', 'green', 'cher', 'weather', 'avaetc', 'showperson', 'possible', 'certainly', 'picture',
+                 'choices', 'cashew', 'arguably', 'person', 'boy', 'screenplay', 'go', 'up', 'call', 'baby', 'imagine',
+                 'felt', 'spring', 'rides', 'bull', 'globe', 'the best', 'artist', 'soon', 'series', 'good',
+                 'flip', 'saw', 'mom', 'dragons', 'downton', 'terrible', 'the show', 'lana', 'honest', 'day',
+                 'show', 'crazy', 'character', 'cast', 'incredible', 'know', 'viola', 'tuesday', 'golden', 'true']
     res = []
-    for g in results:
-        g_res = []
-        for e in g:
-            e_str = ' '.join(e[0])
-            found = False
-            i = 0
-            kwds_len = len(kwds)
-            kwds_par_len = len(kwds_partial)
-            kwds_ful_len = len(kwds_full)
-            while not found and i < kwds_len:
-                if kwds[i] in e[0]:
-                    found = True
-                i += 1
-            i = 0
-            while not found and i < kwds_par_len:
-                if e_str.find(kwds_partial[i]) != -1:
-                    found = True
-                i += 1
-            i = 0
-            while not found and i < kwds_ful_len:
-                if kwds_full[i] == e_str:
-                    found = True
-                i += 1
-            if not found:
-                g_res.append([e_str, e[1]])
-        res.append(g_res)
+    for e in results:
+        e_str = ' '.join(e[0])
+        found = False
+        i = 0
+        kwds_len = len(kwds)
+        kwds_par_len = len(kwds_partial)
+        kwds_ful_len = len(kwds_full)
+        while not found and i < kwds_len:
+            if kwds[i] in e[0]:
+                found = True
+            i += 1
+        i = 0
+        while not found and i < kwds_par_len:
+            if e_str.find(kwds_partial[i]) != -1:
+                found = True
+            i += 1
+        i = 0
+        while not found and i < kwds_ful_len:
+            if kwds_full[i] == e_str:
+                found = True
+            i += 1
+        if not found:
+            res.append([e_str, e[1]])
     return res
 
 
+@ray.remote
 def disqualify_kwd_str(results):
     kwds = ['and', 'for', 'to', 'not', 'have', 'can', ' may', ' do', 'does', 'did', 'it', 'they', 'should', 'if',
             'but', 'that', 'im', 'shit', 'than', 'kinda', 'bc', 'though', 'kidding', 'ok', 'wtf', 'omg', 'def', 'boo',
@@ -354,44 +385,46 @@ def disqualify_kwd_str(results):
             'notice', 'boss', 'en', 'y', 'b', 'q', 'si', 'un', 'che', 'el', 'sexy', 'que', 'unidos', 'favorito', 'gente',
             'arrived', 'la', 'le', 'together', 'watching', 'nos', 'cuando', 'estan', 'tres', 'beau', 'hola', 'actors',
             'actor', 'shes', 'hes', 'done', 'terracolombia', 'miss', 'con', 'actriz', 'guaperrima', 'mr', 'hermosa',
-            'woman', 'aux', 'ransom', 'hon', 'let', 'watch', 'verdadero']
-    kwds_partial = ['president', 'yaa', 'hah', 'hmm', 'ooo', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+            'woman', 'aux', 'ransom', 'hon', 'let', 'watch', 'verdadero', 'common', 'loving', 'love', 'seeing', 'jokes',
+            'wife', 'christ', 'talkin', 'always', 'turn', 'your', 'looks', 'seen', 'wifes', 'says', 'press', 'saying',
+            'award', 'goes', 'moment', 'wearing', 'fun', 'alums', 'baby', 'glasses', 'awkward', 'most', 'skipped',
+            'television', 'picture', 'every', 'course', 'nbc', 'best', 'known', 'go', 'about', 'missed',]
+    kwds_partial = ['president', 'yaa', 'hah', 'www', 'hmm', 'ooo', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                    'official', ]
 
     res = []
-    for g in results:
-        g_res = []
-        for e in g:
-            # for p1 and p2 in e
-            found = False
-            for p in e[0]:
-                i = 0
-                kwds_len = len(kwds)
-                kwds_par_len = len(kwds_partial)
-                while not found and i < kwds_len:
-                    if kwds[i] in p.split(' '):
-                        found = True
-                    i += 1
-                i = 0
-                while not found and i < kwds_par_len:
-                    if kwds_partial[i] in p:
-                        found = True
-                    i += 1
-            if not found:
-                g_res.append(e)
-        res.append(g_res)
+    for e in results:
+        # for p1 and p2 in e
+        found = False
+        for p in e[0]:
+            i = 0
+            kwds_par_len = len(kwds_partial)
+            for x in p.split(' '):
+                if x in kwds:
+                    found = True
+            while not found and i < kwds_par_len:
+                if kwds_partial[i] in p:
+                    found = True
+                i += 1
+        if not found:
+            res.append(e)
     return res
 
 
+@ray.remote
 def remove_dup_single(res):
-    top = deepcopy(res[:15])
-    for e in res:
+    remove = []
+    for i, e in enumerate(res):
         e_l = e[0].split(' ')
-        cand_sups = []
-        for x in top:
-            if len(x[0].split(' ')) > 1:
-                cand_sups.append(x[0])
-        if len(e_l) == 1 and any([e[0] in c for c in cand_sups]):
-            res.remove(e)
+        if len(e_l) == 1:
+            for j, x in enumerate(res):
+                x_l = x[0].split(' ')
+                if len(x_l) > 1 and e[0] in x_l:
+                    if e[1] < x[1] / 0.3:
+                        remove.append(i)
+    remove = sorted(remove, reverse=True)
+    for idx in remove:
+        res.remove(res[idx])
     return res
 
 
@@ -441,15 +474,8 @@ def find_presenters(sent, backward=True, eng=True):
     return presenters
 
 
-def combine_presenters(lsts):
-    return [_combine_presenters(l) for l in lsts]
-
-
-def combine_presenter_sublists(lsts):
-    return [_combine_presenter_sublists(l) for l in lsts]
-
-
-def _combine_presenters(lst):
+@ray.remote
+def combine_presenters(lst):
     remove = []
     for i, l in enumerate(lst):
         for j, m in enumerate(lst):
@@ -472,20 +498,26 @@ def _combine_presenters(lst):
     return sorted(lst, key=lambda x:x[1], reverse=True)
 
 
-def _combine_presenter_sublists(lst):
+@ray.remote
+def combine_presenter_sublists(lst):
     for i, l in enumerate(lst):
         for j, m in enumerate(lst):
             if j == i:
                 continue
             l_match = True
+            hard_combine = True
             for ll in l[0]:
                 m_match = False
                 for mm in m[0]:
                     if ll in mm:
                         m_match = True
+                        if len(ll.split()) != len(mm.split()):
+                            hard_combine = False
                 if not m_match:
                     l_match = False
-            if l_match and l[1] * 0.75 < m[1]:
+            if l_match and hard_combine:
+                lst[j][1] += lst[i][1]
+            elif l_match and l[1] * 0.75 < m[1]:
                 lst[j][1] /= 0.75
     # prefer pairs by summing counts for individuals in pairs
     return sorted(lst, key=lambda x:x[1], reverse=True)

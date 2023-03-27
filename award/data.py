@@ -51,8 +51,8 @@ def load(path):
     return new_data
 
 
-gg2013 = load('./gg2013.json')
-gg2015 = load('./gg2015.json')
+#gg2013 = load('./gg2013.json')
+#gg2015 = load('./gg2015.json')
 
 awards = [['best', 'motion', 'picture', 'drama'],
           ['best', 'motion', 'picture', 'comedy', 'or', 'musical'],
