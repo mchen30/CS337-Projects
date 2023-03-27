@@ -1,7 +1,7 @@
 # CS337-Projects
 
-Project 1: Golden Globe Awards Extraction
-- Complete basic tasks, and
+## Project 1: Golden Globe Awards Extraction
+- Complete basic tasks with good accuracy, and
 - Fully parallelized the program using Ray
 
 The program can be run from the terminal and the relevant award information will be printed in a human-readable format. Json conversion of the results is implemented but not used for the auto-grader. Additional API integration for the autograder is done in gg_api.py, and the pre-ceremony() and main() functions are called from within autograder.py.
@@ -16,10 +16,11 @@ The information is then used to improve the extraction and re-ranking accuracy o
 
 In practice, the program returns exact spellings for 37% and 39% of all the nominees for each award in 2013 and 2015, respectively, not including nearly correct spellings that miss punctuations in names. It also returns exact spellings for 72% and 60% of the presenters in 2013 and 2015, not including any partial representations of movies or names. The Cecil B. Demille Award is not extracted by the program.
 
-The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program avoids unnecessary data copying in worker threads and has been tested to make full use of 36 physical cores on a server node. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in about 2.5 minutes. 
+The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program avoids unnecessary data copying in worker threads and has been tested to make full use of 36 physical cores on a server node. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in about 2.5 minutes. The number of (physical) CPU cores used can be configured in gg_api.pre_ceremony() and gg_api.main(), or in process.py.
 
 
-Project 2: Recipe Extraction and Transformation
+
+## Project 2: Recipe Extraction and Transformation
 - Completed basic tasks, and
 - Two styles of cuisine (Chinese and Mexican)
 - Double or half the serving size (including cooking time)
