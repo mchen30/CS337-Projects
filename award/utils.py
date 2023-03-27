@@ -61,13 +61,16 @@ def look_backward(sent, ind, start=None, end=None, include=True, end_exclude=Non
 
 # merge and count
 def unique_ngrams(ngrams_lst):
-    uni = []
+    dict = {}
     cnt = []
     for ngram in ngrams_lst:
-        if ngram not in uni:
-            uni.append(ngram)
-    for uni_ngram in uni:
-        cnt.append([uni_ngram, ngrams_lst.count(uni_ngram)])
+        ngram_str = ' '.join(ngram)
+        if ngram_str not in dict:
+            dict[ngram_str] = 1
+        else:
+            dict[ngram_str] += 1
+    for ngram_str in dict:
+        cnt.append([ngram_str.split(), dict[ngram_str]])
     sorted_cnt = sorted(cnt, key=lambda x: x[1], reverse=True)
     return sorted_cnt
 
@@ -205,17 +208,15 @@ def untie(sorted_ca):
 
 # merge and count
 def unique_ngrams_ts(ngrams_lst, start=None):
-    uni = []
     cnt = []
-    all_ngrams = []
+    all_ngrams = {}
     timestamp = {}
     timestamp_init = {}
     for ngrams in ngrams_lst:
-        all_ngrams.extend(ngrams[0])
         for ngram in ngrams[0]:
             ngram_str = ' '.join(ngram)
-            if ngram not in uni:
-                uni.append(ngram)
+            if ngram_str not in all_ngrams:
+                all_ngrams[ngram_str] = 1
                 if start is None or ngrams[1] >= start:
                     timestamp[ngram_str] = ngrams[1]
                 else:
@@ -224,28 +225,29 @@ def unique_ngrams_ts(ngrams_lst, start=None):
             # find earliest occurrence
             elif ngrams[1] < timestamp[ngram_str]:
                 timestamp[ngram_str] = ngrams[1]
+                all_ngrams[ngram_str] += 1
+            else:
+                all_ngrams[ngram_str] += 1
     # prefer occurrences after t=start
     for ng in timestamp.keys():
         if timestamp[ng] == np.inf:
             timestamp[ng] = timestamp_init[ng]
-    for uni_ngram in uni:
-        cnt.append([uni_ngram, all_ngrams.count(uni_ngram), timestamp[' '.join(uni_ngram)]])
+    for uni_ngram in all_ngrams:
+        cnt.append([uni_ngram.split(), all_ngrams[uni_ngram], timestamp[uni_ngram]])
     sorted_cnt = sorted(cnt, key=lambda x: x[1], reverse=True)
     return sorted_cnt
 
 
 def unique_strs_ts(strs_lst, start=None):
-    uni = []
     cnt = []
-    all_strs = []
+    all_strs = {}
     timestamp = {}
     timestamp_init = {}
     for strs in strs_lst:
-        all_strs.extend(strs[0])
         for ps in strs[0]:
             ps_str = ' & '.join(ps)
-            if ps not in uni:
-                uni.append(ps)
+            if ps_str not in all_strs:
+                all_strs[ps_str] = 1
                 if start is None or strs[1] >= start:
                     timestamp[ps_str] = strs[1]
                 else:
@@ -254,13 +256,17 @@ def unique_strs_ts(strs_lst, start=None):
             # find earliest occurrence
             elif strs[1] < timestamp[ps_str]:
                 timestamp[ps_str] = strs[1]
+                all_strs[ps_str] += 1
+            else:
+                all_strs[ps_str] += 1
+
     # prefer occurrences after t=start
     for pss in timestamp.keys():
         if timestamp[pss] == np.inf:
             timestamp[pss] = timestamp_init[pss]
-    for uni_ngram in uni:
+    for uni_ngram in all_strs:
         # uni_ngram is list(str[, str])
-        cnt.append([uni_ngram, all_strs.count(uni_ngram), timestamp[' & '.join(uni_ngram)]])
+        cnt.append([uni_ngram.split(' & '), all_strs[uni_ngram], timestamp[uni_ngram]])
     sorted_cnt = sorted(cnt, key=lambda x: x[1], reverse=True)
     return sorted_cnt
 

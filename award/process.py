@@ -260,7 +260,7 @@ def main():
     # remove all sub-lists, re-rank based on occurrence frequency in the full dataset
     ca = remove_all_sublists(sorted_ca)
     dt = time.time() - t
-    print(f"--- End unique_strs_ts(), used {dt}ms --- ")
+    print(f"--- End unique_ngrams(), used {dt}s --- ")
     host_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, ca)
     hosts = filter_host_kwd(host_cand)
 
@@ -304,7 +304,7 @@ def main():
 
     nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
 
-    '''# order by award list
+    # order by award list
     nom_target = [ans['award_data'][award_map_inv[' '.join(a)]]['nominees'] for a in awards]
     nom_res = [[] for _ in range(len(nom_target))]
     true = 0
@@ -327,7 +327,7 @@ def main():
     for r in nom_res:
         print(r)
 
-    for r in nominee_grouped:
+    '''for r in nominee_grouped:
         print(r)'''
 
     presenters_raw = ray_data_workers(extract_presenters, collect_combine, n_CPU, data_len, data_ref)
@@ -357,7 +357,7 @@ def main():
     presenters = [cands[0][0] for cands in presenter_grouped]
     print(presenters)
 
-    '''# order by award list
+    # order by award list
     p = [ans['award_data'][award_map_inv[' '.join(a)]]['presenters'] for a in awards]
     p_res = [[] for _ in range(len(p))]
     true = 0
@@ -382,7 +382,7 @@ def main():
     for r in p_res:
         print(r)
 
-    for r in presenter_grouped:
+    '''for r in presenter_grouped:
         print(r)'''
 
 
