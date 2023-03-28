@@ -8,7 +8,7 @@ The program can be run from the terminal and the relevant award information will
 
 The program retrieves the hosts accurately for both 2013 and 2015. The top 25 award titles extracted are returned to the autograder. They cover most of the awards, but the formatting and spelling may vary which makes it difficult to assign a completion score by the autograder in practice. 
 
-Hard-coded award names are then used to extract the winners, nominees and presenters for each award. The winners extraction accuracy is 100% in practice, minus the program's inability to discern abbreviations in names, such as Louis C.K.. For 2015, the best original song is returned as Glory, which is from Selma, but the correct answer is Selma.
+Hard-coded award names are then used to extract the winners, nominees and presenters for each award. The winners extraction accuracy is 100% in practice, minus the program's inability to discern abbreviations in names, such as Louis C.K.. Also, the best original song for gg2015 is returned as Glory, which is from Selma, but the correct answer is Selma.
 
 The extracted winners are then used to find the earliest timestamp associated with the announcement of the winners. This proves a highly effective way to segment the ceremony by the award types. The award orders in the ceremony are extracted perfectly both for 2013 and 2015.
 
@@ -16,7 +16,7 @@ The information is then used to improve the extraction and re-ranking accuracy o
 
 In practice, the program returns exact spellings for 37% and 39% of all the nominees for each award in 2013 and 2015, respectively, not including nearly correct spellings that miss punctuations in names. It also returns exact spellings for 72% and 60% of the presenters in 2013 and 2015, not including any partial representations of movies or names.
 
-The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program avoids unnecessary data copying in worker threads and has been tested to make full use of the physical cores on a server node. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in about 2.5 minutes. The number of (physical) CPU cores used can be configured in gg_api.pre_ceremony() and gg_api.main(), or in process.py.
+The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program minimizes data copying in worker threads. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in less than a minute on a server node, of which half the time was used in pd.read_json(). Modin was tested to further parallelize pandas operations but the gains were limited, so it was not included in the final version. On a quad-core laptop, the total run time is about 3 minutes. The number of (physical) CPU cores used can be configured in gg_api.pre_ceremony() and gg_api.main(), or in process.py.
 
 
 

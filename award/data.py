@@ -1,18 +1,15 @@
-import json
 import re
 import ray
 import pandas as pd
-# import modin.pandas as pd
 import unidecode
+from functools import reduce
 
 
 @ray.remote
 def clean(data, indices):
     texts = []
-    timestamps = []
-    for tweet_i in range(*indices):
-        sent = data.loc[tweet_i, 'text'].strip().split()
-        timestamps.append(int(data.loc[tweet_i, 'timestamp_ms']))
+    sents = [x.split() for x in data.iloc[range(*indices)].tolist()]
+    for sent in sents:
         new_sent = []
         for i, word in enumerate(sent):
             # not good for extracting winners
@@ -31,18 +28,17 @@ def clean(data, indices):
                 # remove punctuation and case
                 new_sent.append(word.lower())
         texts.append(unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent))))
-    df = pd.DataFrame(data={'text': texts, 'timestamp_ms': timestamps})
-    return df
+    return texts
 
 
 def load(path, n_CPU):
     ray.init(num_cpus=n_CPU, ignore_reinit_error=True)
-    data = pd.DataFrame.from_records(json.load(open(path)))
-    data_ref = ray.put(data)
-    new_data_refs = []
-    for cpu in range(n_CPU):
-        new_data_refs.append(clean.remote(data_ref, [int(len(data) / n_CPU * cpu), int(len(data) / n_CPU * (cpu+1))]))
-    new_data = pd.concat([ray.get(ref) for ref in new_data_refs])
+    data = pd.read_json(path, orient='records', dtype={'text': 'object', 'timestamp_ms': 'int64',
+                                                       'user': 'bool', 'id': 'bool'})
+    data_ref = ray.put(data.text)
+    text_refs = [clean.remote(data_ref, [int(len(data) / n_CPU * cpu), int(len(data) / n_CPU * (cpu+1))]) for cpu in range(n_CPU)]
+    text = reduce(lambda x, y: x+y, [ray.get(ref) for ref in text_refs])
+    new_data = pd.DataFrame(data={'text': text, 'timestamp_ms': data.timestamp_ms})
     return new_data
 
 

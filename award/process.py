@@ -1,4 +1,3 @@
-import os
 from data import *
 from utils import *
 import numpy as np
@@ -386,34 +385,28 @@ def process(data_len, data_ref, n_CPU=4):
 
 
 if __name__ == '__main__':
-    from time import time
     n_CPU = 4
-    os.environ['__MODIN_AUTOIMPORT_PANDAS__'] = '1'
     if len(sys.argv) > 1:
         year = sys.argv[1]
     else:
         year = '2015'
-    t = time()
     data = load(f'./gg{year}.json', n_CPU)
     data_len = len(data)
     data_ref = ray.put(data)
     hosts, award_cand, winners, nominees, presenters = process(data_len, data_ref, n_CPU)
     json_output = {}
-    print('Host(s): ' + ', '.join(capitalize(hosts)))
     json_output['hosts'] = hosts
     json_output['award_data'] = {}
+    print('Host(s): ' + ', '.join(capitalize(hosts)))
     print('Awards identified (top 25):\n\t' + '\n\t'.join(capitalize(award_cand)))
     print('\nUsing hardcoded award names, the following award information was found:')
     for i, award in enumerate(award_lst):
         formal_name = award_map_inv[' '.join(award)]
         print('\nAward:\n\t' + capitalize([formal_name])[0])
-        json_output['award_data'][formal_name] = {}
         print('Presenter(s):\n\t' + ', '.join(capitalize(presenters[i])))
-        json_output['award_data'][formal_name]['presenters'] = presenters[i]
         print('Nominees:\n\t' + '\n\t'.join(capitalize(nominees[i])))
-        json_output['award_data'][formal_name]['nominees'] = nominees[i]
         print('Winner:\n\t' + capitalize([winners[i]])[0])
+        json_output['award_data'][formal_name] = {}
+        json_output['award_data'][formal_name]['presenters'] = presenters[i]
+        json_output['award_data'][formal_name]['nominees'] = nominees[i]
         json_output['award_data'][formal_name]['winner'] = winners[i]
-
-    dt = time() - t
-    print(f'total time used {dt} seconds')
