@@ -1,28 +1,29 @@
 import json
 import re
-import ray
-# import pandas as pd
-import modin.pandas as pd
 import unidecode
+from line_profiler_pycharm import profile
+import ray
 
 
 @ray.remote
 def clean(data, indices):
-    texts = []
-    timestamps = []
-    for tweet_i in range(*indices):
-        sent = data.loc[tweet_i, 'text'].strip().split()
-        timestamps.append(int(data.loc[tweet_i, 'timestamp_ms']))
+    new_data = []
+    for tweet in data[indices[0]: indices[1]]:
+        new_tweet = {}
+        sent = tweet['text'].strip().split()
+        new_tweet['timestamp_ms'] = tweet['timestamp_ms']
+        new_tweet['hashtag'] = []
         new_sent = []
         for i, word in enumerate(sent):
             # not good for extracting winners
-            if word.startswith('#') or word.startswith('http'):
+            if word.startswith('#'):
+                # store hashtags separately
+                new_tweet['hashtag'].append(word[1:].lower())
+            elif word.startswith('http'):
                 continue
             elif word == '&amp;':
                 # replace & with and
                 new_sent.append('and')
-            elif '...' in word:
-                new_sent.append(word.replace('...', ' ').lower())
             elif word.startswith('@') and i > 0 and sent[i - 1] == 'RT':
                 new_sent = []
             elif word.startswith('@') and word.lower() != '@goldenglobes':
@@ -30,19 +31,21 @@ def clean(data, indices):
             else:
                 # remove punctuation and case
                 new_sent.append(word.lower())
-        texts.append(unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent))))
-    df = pd.DataFrame(data={'text': texts, 'timestamp_ms': timestamps})
-    return df
+        new_tweet['text'] = unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent)))
+        new_data.append(new_tweet)
+    return new_data
 
 
 def load(path, n_CPU):
     ray.init(num_cpus=n_CPU, ignore_reinit_error=True)
-    data = pd.DataFrame.from_records(json.load(open(path)))
+    data = json.load(open(path))
     data_ref = ray.put(data)
     new_data_refs = []
     for cpu in range(n_CPU):
         new_data_refs.append(clean.remote(data_ref, [int(len(data) / n_CPU * cpu), int(len(data) / n_CPU * (cpu+1))]))
-    new_data = pd.concat([ray.get(ref) for ref in new_data_refs])
+    new_data = []
+    for ref in new_data_refs:
+        new_data += ray.get(ref)
     return new_data
 
 
@@ -98,8 +101,7 @@ award_map = {'best screenplay - motion picture': ['best', 'screenplay'],
              'best performance by an actor in a motion picture - drama': ['best', 'actor', 'in', 'a', 'motion', 'picture', 'drama'],
              'best television series - comedy or musical': ['best', 'tv', 'series', 'comedy', 'or', 'musical'],
              'best performance by an actor in a television series - drama': ['best', 'actor', 'in', 'a', 'tv', 'series', 'drama'],
-             'best performance by an actor in a television series - comedy or musical': ['best', 'actor', 'in', 'a', 'tv', 'series', 'comedy', 'or', 'musical'],
-             'cecil b. demille award': ['cecil', 'b.', 'demille', 'award']}
+             'best performance by an actor in a television series - comedy or musical': ['best', 'actor', 'in', 'a', 'tv', 'series', 'comedy', 'or', 'musical']}
 
 award_map_inv = {}
 for k in award_map.keys():

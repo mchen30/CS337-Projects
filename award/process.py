@@ -1,4 +1,3 @@
-import os
 from data import *
 from utils import *
 import numpy as np
@@ -9,34 +8,34 @@ import sys
 @ray.remote
 def extract_hosts(data, indices):
     ca_set = []
-    for tweet_i in range(*indices):
-        sent = data.iloc[tweet_i]['text'].split()
+    for tweet in data[indices[0]: indices[1]]:
+        sent = tweet['text'].split()
         for i, word in enumerate(sent):
             # hosted by xxxxxxxx
             if word == 'hosted' and i+1 < len(sent) and sent[i+1] == 'by':
-                ca_set += look_forward(sent, i+1, max_len=5)
+                ca_set += look_forward(sent, i+1)
             # xxxxxxxxx host(s)
             elif word == 'host' or word == 'hosts':
-                ca_set += look_backward(sent, i, max_len=5)
+                ca_set += look_backward(sent, i)
             elif word == 'hosts' and i > 1 and sent[i-1] == 'the' and sent[i-2] == 'are':
-                ca_set += look_backward(sent, i-2, max_len=5)
+                ca_set += look_backward(sent, i-2)
             elif  word == 'hosts' and i > 1 and sent[i-2] == 'are':
-                ca_set += look_backward(sent, i-1, max_len=5)
+                ca_set += look_backward(sent, i-1)
             elif word == 'host' and i > 1 and sent[i-1] == 'the' and sent[i-2] == 'is':
-                ca_set += look_backward(sent, i-2, max_len=5)
+                ca_set += look_backward(sent, i-2)
             # xxxxxxxxx is/are hosting
             elif word == 'hosting' and i > 0 and (sent[i-1] == 'is' or sent[i-1] == 'are'):
-                ca_set += look_backward(sent, i-1, max_len=5)
+                ca_set += look_backward(sent, i-1)
             elif word == 'hosting' and i > 0 and sent[i-1] != 'is' and sent[i-1] != 'are':
-                ca_set += look_backward(sent, i, max_len=5)
+                ca_set += look_backward(sent, i)
     return ca_set
 
 
 @ray.remote
 def extract_awards(data, indices):
     ca_set_awards = []
-    for tweet_i in range(*indices):
-        sent = data.iloc[tweet_i]['text'].split()
+    for tweet in data[indices[0]: indices[1]]:
+        sent = tweet['text'].split()
         for i, word in enumerate(sent):
             # best xxx goes to
             if word == 'goes' and i+1 < len(sent) and sent[i+1] == 'to':
@@ -57,33 +56,16 @@ def extract_winners(data, indices, awards):
     n_awards = len(awards)
     data_len = len(data)
     award_winner = [[] for _ in range(n_awards)]
-    demille_winner = []
-    for tweet_i in range(*indices):
-        text = data.iloc[tweet_i]['text']
+    for tweet in data[indices[0]: indices[1]]:
+        text = tweet['text']
         sent = text.split()
-        ts = data.iloc[tweet_i]['timestamp_ms']
         for i, award in enumerate(awards):
-            j = text.find('cecil b demille award')
-            if j != -1:
-                demille_winner_text = []
-                j = len(text[:j].split())
-                # extract demille winner
-                demille_winner_text += look_backward(sent, j, end=['wins', 'the'], include=False, max_len=3)
-                demille_winner_text += look_backward(sent, j, end=['wins'], include=False, max_len=3)
-                demille_winner_text += look_backward(sent, j, end=['will', 'receive', 'the'], include=False, max_len=3)
-                demille_winner_text += look_backward(sent, j, end=['will', 'receive'], include=False, max_len=3)
-                demille_winner_text += look_backward(sent, j, end=['for', 'winning', 'the'], include=False, max_len=3)
-                demille_winner_text += look_backward(sent, j, end=['for', 'winning'], include=False, max_len=3)
-                demille_winner_text += look_forward(sent, j + 4, start=['goes', 'to'], include=False, max_len=3)
-                demille_winner_text += look_forward(sent, j + 4, start=['to'], include=False, max_len=3)
-                if len(demille_winner_text) > 0:
-                    demille_winner.append([demille_winner_text, ts])
             # get award names
             award_str = ' '.join(award)
-            j = text.find(award_str)
-            if j != -1:
+            if award_str in text:
+                j = text.find(award_str)
                 j = len(text[:j].split())
-                cand_winner_text = []
+                cand_winner_text = None
                 # AWARD goes to xxx
                 if j + len(award) + 2 < len(sent) and sent[j + len(award)] == 'goes' and sent[j + len(award) + 1] == 'to':
                     cand_winner_text = look_forward(sent, j + len(award) - 1, start=['goes', 'to'], include=False)
@@ -137,19 +119,16 @@ def extract_winners(data, indices, awards):
                 # AWARD: xxx
                 elif data_len < 500000 and j + len(award) < len(sent):
                     cand_winner_text = look_forward(sent, j + len(award) - 1, start_exclude=['at'])
-                if len(cand_winner_text) > 0:
-                    award_winner[i].append([cand_winner_text, ts])
-    award_winner.append(demille_winner)
+                if cand_winner_text is not None and len(cand_winner_text) > 0:
+                    award_winner[i].append([cand_winner_text, int(tweet['timestamp_ms'])])
     return award_winner
 
 
 @ray.remote
 def extract_nominees(data, indices):
     nominees = []
-    for tweet_i in range(*indices):
-        tweet = data.iloc[tweet_i]
+    for tweet in data[indices[0]: indices[1]]:
         sent = tweet['text'].split()
-        ts = tweet['timestamp_ms']
         nominee_text = []
         for j, word in enumerate(sent):
             if word == 'won' and j > 0:
@@ -211,43 +190,15 @@ def extract_nominees(data, indices):
             elif word == 'why' and j < len(sent) - 2 and sent[j + 1] == 'not':
                 nominee_text += look_forward(sent, j+1)
         if len(nominee_text) > 0:
-            nominees.append([nominee_text, ts])
+            nominees.append([nominee_text, int(tweet['timestamp_ms'])])
     return nominees
-
-
-@ray.remote
-def extract_presenters_demille(data, indices):
-    presenters = []
-    for tweet_i in range(*indices):
-        tweet = data.iloc[tweet_i]
-        text = tweet['text']
-        ts = tweet['timestamp_ms']
-        sent = text.split()
-        j = text.find('cecil b demille award')
-        if j != -1:
-            j = len(text[:j].split())
-            if j > 2 and sent[j - 1] == 'the' and (sent[j - 2] == 'presents' or sent[j - 2] == 'present'):
-                p = find_presenters(sent[:j - 2])
-                if len(p) > 0: presenters.append([p, ts])
-            elif j > 1 and (sent[j - 1] == 'presents' or sent[j - 1] == 'present'):
-                p = find_presenters(sent[:j - 1])
-                if len(p) > 0: presenters.append([p, ts])
-            elif j > 2 and sent[j - 1] == 'the' and sent[j - 2] == 'presenting':
-                p = find_presenters(sent[:j - 2])
-                if len(p) > 0: presenters.append([p, ts])
-            elif j > 1 and sent[j - 1] == 'presenting':
-                p = find_presenters(sent[:j - 1])
-                if len(p) > 0: presenters.append([p, ts])
-    return presenters
 
 
 @ray.remote
 def extract_presenters(data, indices):
     presenters = []
-    for tweet_i in range(*indices):
-        tweet = data.iloc[tweet_i]
+    for tweet in data[indices[0]: indices[1]]:
         sent = tweet['text'].split()
-        ts = tweet['timestamp_ms']
         presenter_text = []
         for i, word in enumerate(sent):
             # x is/are presenting
@@ -284,7 +235,7 @@ def extract_presenters(data, indices):
                 if len(p) > 0: presenter_text.extend(p)
 
         if len(presenter_text) > 0:
-            presenters.append([presenter_text, ts])
+            presenters.append([presenter_text, int(tweet['timestamp_ms'])])
     return presenters
 
 
@@ -299,7 +250,7 @@ def process(data_len, data_ref, n_CPU=4):
         host_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, ca)
         hosts = filter_host_kwd(host_cand)
     else:
-        hosts = ' '.join(ca[0]).split(' and ')
+        hosts = ca[0]
 
     awards_raw = ray_data_workers(extract_awards, collect_combine, n_CPU, data_len, data_ref)
     sorted_ca_awards = unique_ngrams(awards_raw)[:100]
@@ -313,12 +264,10 @@ def process(data_len, data_ref, n_CPU=4):
 
     winners_raw = ray_data_workers(extract_winners, collect_combine_n, n_CPU, data_len, data_ref, award_lst)
     winner_grouped = ray_res_workers(untie_raw_winners, collect, winners_raw)
-
     winner_lsts, _, _ = zip(*winner_grouped)
-    # cecil demille award is at the end of list
     winners = [' '.join(x) for x in winner_lsts]
 
-    order = np.argsort([x[2] for x in winner_grouped[:-1]])
+    order = np.argsort([x[2] for x in winner_grouped])
     timestamps = [winner_grouped[i][2] for i in order]
 
     nominees_raw = ray_data_workers(extract_nominees, collect_combine, n_CPU, data_len, data_ref)
@@ -345,8 +294,6 @@ def process(data_len, data_ref, n_CPU=4):
     nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
 
     presenters_raw = ray_data_workers(extract_presenters, collect_combine, n_CPU, data_len, data_ref)
-    demille_presenters_raw = ray_data_workers(extract_presenters_demille, collect_combine, n_CPU, data_len, data_ref)
-
     ts_diff = np.diff(timestamps)
     timestamps_mid = [int(timestamps[0] - ts_diff[0]/2)]
     for i, dt in enumerate(ts_diff):
@@ -355,10 +302,7 @@ def process(data_len, data_ref, n_CPU=4):
         else:
             timestamps_mid.append(timestamps_mid[i] + ts_diff[i] / 2 + ts_diff[i - 1] / 2)
 
-    demille_presenters = unique_strs_ts(demille_presenters_raw)
-    demille_presenters = ray_res_workers(combine_presenters, collect, [demille_presenters])[0]
-    demille_presenters = ray_res_workers(combine_presenter_sublists, collect, [demille_presenters])[0][0][0]
-
+    # combine identical strings
     presenters = unique_strs_ts(presenters_raw, start=timestamps_mid[0])
     # filter by award announcement time intervals
     presenters = ray_data_workers(filter_by_timestamp, collect_combine_n, n_CPU, data_len, presenters, timestamps_mid, data_len<500000)
@@ -375,42 +319,32 @@ def process(data_len, data_ref, n_CPU=4):
     presenter_grouped = [presenters[list(order).index(i)] for i in range(len(award_lst))]
     presenters = [cands[0][0] for cands in presenter_grouped]
 
-    award_lst.append(['cecil', 'b.', 'demille', 'award'])
-    nominees.append([])
-    presenters.append(demille_presenters)
-
     return hosts, award_cand, winners, nominees, presenters
 
 
 if __name__ == '__main__':
-    from time import time
     n_CPU = 4
-    os.environ['__MODIN_AUTOIMPORT_PANDAS__'] = '1'
     if len(sys.argv) > 1:
         year = sys.argv[1]
     else:
         year = '2015'
-    t = time()
     data = load(f'./gg{year}.json', n_CPU)
     data_len = len(data)
     data_ref = ray.put(data)
     hosts, award_cand, winners, nominees, presenters = process(data_len, data_ref, n_CPU)
     json_output = {}
-    print('Host(s): ' + ', '.join(capitalize(hosts)))
+    print('Host(s): ' + ', '.join(hosts))
     json_output['hosts'] = hosts
     json_output['award_data'] = {}
-    print('Awards identified (top 25):\n\t' + '\n\t'.join(capitalize(award_cand)))
+    print('Awards identified (top 25):\n\t' + '\n\t'.join(award_cand))
     print('\nUsing hardcoded award names, the following award information was found:')
     for i, award in enumerate(award_lst):
         formal_name = award_map_inv[' '.join(award)]
-        print('\nAward:\n\t' + capitalize([formal_name])[0])
+        print('\nAward:\n\t' + formal_name)
         json_output['award_data'][formal_name] = {}
-        print('Presenter(s):\n\t' + ', '.join(capitalize(presenters[i])))
+        print('Presenter(s):\n\t' + ', '.join(presenters[i]))
         json_output['award_data'][formal_name]['presenters'] = presenters[i]
-        print('Nominees:\n\t' + '\n\t'.join(capitalize(nominees[i])))
+        print('Nominees:\n\t' + '\n\t'.join(nominees[i]))
         json_output['award_data'][formal_name]['nominees'] = nominees[i]
-        print('Winner:\n\t' + capitalize([winners[i]])[0])
+        print('Winner:\n\t' + winners[i])
         json_output['award_data'][formal_name]['winner'] = winners[i]
-
-    dt = time() - t
-    print(f'total time used {dt} seconds')
