@@ -1,6 +1,4 @@
 import numpy as np
-from copy import deepcopy
-from line_profiler_pycharm import profile
 from functools import reduce
 import ray
 
@@ -124,7 +122,7 @@ def is_StrictSublist(l, s):
 def filter_host_kwd(lst):
     found = False
     hosts = None
-    kwds = ['the', 'golden globes', 'to', 'best', 'our', 'can']
+    kwds = ['the', 'golden globes', 'to', 'best', 'our', 'can', 'as']
     while not found:
         lst_str = ' '.join(lst[0][0])
         if lst_str in kwds:
@@ -343,7 +341,7 @@ def disqualify_kwd(results):
                  'absolutely', 'else', 'anyone', 'this', 'on', 'watch', 'hear', 'award', 'both', 'hadnt', 'sadly',
                  'settle', 'green', 'cher', 'weather', 'avaetc', 'showperson', 'possible', 'certainly', 'picture',
                  'choices', 'cashew', 'arguably', 'person', 'boy', 'screenplay', 'go', 'up', 'call', 'baby', 'imagine',
-                 'felt', 'spring', 'rides', 'bull', 'globe', 'the best', 'artist', 'soon', 'series', 'good',
+                 'felt', 'spring', 'rides', 'bull', 'globe', 'the best', 'best', 'artist', 'soon', 'series', 'good',
                  'flip', 'saw', 'mom', 'dragons', 'downton', 'terrible', 'the show', 'lana', 'honest', 'day',
                  'show', 'crazy', 'character', 'cast', 'incredible', 'know', 'viola', 'tuesday', 'golden', 'true']
     res = []
@@ -549,7 +547,8 @@ def combine_presenter_sublists(lst):
 def rerank(data, indices, lsts):
     # zero counts
     freq_lsts = [[l, 0] for l in lsts]
-    for tweet in data[indices[0]: indices[1]]:
+    for tweet_i in range(*indices):
+        tweet = data.iloc[tweet_i]
         for l in freq_lsts:
             if ' '.join(l[0]) in tweet['text']:
                 l[1] += 1
@@ -567,7 +566,8 @@ def rerank_nominees(data, indices, lsts):
     # re-rank based on occurrence frequency
     for l in lsts:
         for e in l: e[1] = 0
-    for tweet in data[indices[0]: indices[1]]:
+    for tweet_i in range(*indices):
+        tweet = data.iloc[tweet_i]
         sent = tweet['text']
         for i, g in enumerate(lsts):
             for x in g:
@@ -587,9 +587,11 @@ def rerank_ts(data, indices, lsts, ts):
         names_lst.append(names)
     for l in lsts:
         for e in l: e[1] = 0
-    for tweet in data[indices[0]: indices[1]]:
-        if 'dress' not in tweet['text'] or 'present' in tweet['text']:
-            t = int(tweet['timestamp_ms'])
+    for tweet_i in range(*indices):
+        tweet = data.iloc[tweet_i]
+        text = tweet['text']
+        if 'dress' not in text or 'present' in text:
+            t = tweet['timestamp_ms']
             i = 0
             while i < ts_len and t > ts[i]:
                 i += 1
@@ -607,7 +609,6 @@ def rerank_ts(data, indices, lsts, ts):
     return lsts
 
 
-@profile
 def ray_data_workers(func_ray, func_comb, n_CPU, data_len, data_ref, *params):
     results = []
     result_refs = []
@@ -649,3 +650,14 @@ def collect_combine(results):
 
 def collect_combine_n(results):
     return reduce(lambda a, b: list(map(lambda x, y: x+y, a, b)), results)
+
+
+def capitalize(str_lst):
+    for i, string in enumerate(str_lst):
+        strs = string.split(' ')
+        for j, str in enumerate(strs):
+            if j == 0 or str not in ['and', 'or', 'in', 'a', 'an', 'by', 'to', 'of', 'for']:
+                char = str[0]
+                strs[j] = char.upper() + str[1:]
+        str_lst[i] = ' '.join(strs)
+    return str_lst
