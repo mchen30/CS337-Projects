@@ -315,7 +315,6 @@ def process(data_len, data_ref, n_CPU=4):
 
     winners_raw = ray_data_workers(extract_winners, collect_combine_n, n_CPU, data_len, data_ref, award_lst)
     winner_grouped = ray_res_workers(untie_raw_winners, collect, winners_raw)
-
     winner_lsts, _, _ = zip(*winner_grouped)
     # cecil demille award is at the end of list
     winners = [' '.join(x) for x in winner_lsts]
@@ -375,11 +374,15 @@ def process(data_len, data_ref, n_CPU=4):
 
     # order by award list
     presenter_grouped = [presenters[list(order).index(i)] for i in range(len(award_lst))]
+    # order by award list
     presenters = [cands[0][0] for cands in presenter_grouped]
 
     award_lst.append(['cecil', 'b.', 'demille', 'award'])
     nominees.append([])
     presenters.append(demille_presenters)
+
+    eval_nominees(nominees, 2013, award_map_inv, award_lst)
+    eval_presenters(presenters, 2013, award_map_inv, award_lst)
 
     return hosts, award_cand, winners, nominees, presenters
 
