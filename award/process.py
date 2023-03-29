@@ -145,6 +145,82 @@ def extract_winners(data, indices, awards):
 
 
 @ray.remote
+def extract_nominees_ts(data, indices, timestamp):
+    nominees = [[] for _ in range(len(timestamp))]
+    tss = data.iloc[range(*indices)]['timestamp_ms'].tolist()
+    sents = [x.split() for x in data.iloc[range(*indices)]['text'].tolist()]
+    i = 0
+    for k, sent in enumerate(sents):
+        ts = tss[k]
+        while i < len(timestamp) and ts > timestamp[i]: i += 1
+        if i == 0: continue
+        # i - 1 is the idx for the award corresponding to the tweet
+        nominee_text = []
+        for j, word in enumerate(sent):
+            if word == 'won' and j > 0:
+                if sent[j-1] == 'have':
+                    if j>2 and (sent[j-3] == 'seriously' or sent[j-3] == 'completely' or sent[j-3] == 'definitely' or sent[j-3] == 'entirely' or sent[j-3] == 'totally' or sent[j-3] == 'totes'):
+                        nominee_text += look_backward(sent, j, end=['seriously', 'should', 'have'], include=False)
+                        nominee_text += look_backward(sent, j, end=['definitely', 'should', 'have'], include=False)
+                        nominee_text += look_backward(sent, j, end=['entirely', 'should', 'have'], include=False)
+                        nominee_text += look_backward(sent, j, end=['completely', 'should', 'have'], include=False)
+                        nominee_text += look_backward(sent, j, end=['totally', 'should', 'have'], include=False)
+                        nominee_text += look_backward(sent, j, end=['totes', 'should', 'have'], include=False)
+                    else:
+                        nominee_text += look_backward(sent, j, end=['should', 'have'], include=False)
+                else:
+                    if j>1 and (sent[j - 2] == 'seriously' or sent[j - 2] == 'completely' or sent[j - 2] == 'definitely' or sent[j - 2] == 'entirely' or sent[j - 2] == 'totally' or sent[j - 2] == 'totes'):
+                        nominee_text += look_backward(sent, j, end=['seriously', 'shouldve'], include=False)
+                        nominee_text += look_backward(sent, j, end=['definitely', 'shouldve'], include=False)
+                        nominee_text += look_backward(sent, j, end=['entirely', 'shouldve'], include=False)
+                        nominee_text += look_backward(sent, j, end=['completely', 'shouldve'], include=False)
+                        nominee_text += look_backward(sent, j, end=['totally', 'shouldve'], include=False)
+                        nominee_text += look_backward(sent, j, end=['totes', 'shouldve'], include=False)
+                    else:
+                        nominee_text += look_backward(sent, j, end=['shouldve'], include=False)
+            elif word == 'deserved' and j > 0 and (sent[j-1] == 'seriously' or sent[j-1] == 'completely' or sent[j-1] == 'definitely' or sent[j-1] == 'entirely' or sent[j-1] == 'totally' or sent[j-1] == 'totes'):
+                if j < len(sent) - 1:
+                    nominee_text += look_backward(sent, j + 2, end=['seriously', 'deserved', 'that'], include=False)
+                    nominee_text += look_backward(sent, j + 2, end=['completely', 'deserved', 'that'], include=False)
+                    nominee_text += look_backward(sent, j + 2, end=['definitely', 'deserved', 'that'], include=False)
+                    nominee_text += look_backward(sent, j + 2, end=['entirely', 'deserved', 'that'], include=False)
+                    nominee_text += look_backward(sent, j + 2, end=['totally', 'deserved', 'that'], include=False)
+                    nominee_text += look_backward(sent, j + 2, end=['totes', 'deserved', 'that'], include=False)
+                if j < len(sent) - 2:
+                    nominee_text += look_backward(sent, j + 3, end=['seriously', 'deserved', 'to', 'win'], include=False)
+                    nominee_text += look_backward(sent, j + 3, end=['completely', 'deserved', 'to', 'win'], include=False)
+                    nominee_text += look_backward(sent, j + 3, end=['definitely', 'deserved', 'to', 'win'], include=False)
+                    nominee_text += look_backward(sent, j + 3, end=['entirely', 'deserved', 'to', 'win'], include=False)
+                    nominee_text += look_backward(sent, j + 3, end=['totally', 'deserved', 'to', 'win'], include=False)
+                    nominee_text += look_backward(sent, j + 3, end=['totes', 'deserved', 'to', 'win'], include=False)
+            elif word == 'deserved':
+                if j < len(sent) - 1:
+                    nominee_text += look_backward(sent, j + 2, end=['deserved', 'that'], include=False)
+                if j < len(sent) - 2:
+                    nominee_text += look_backward(sent, j + 3, end=['deserved', 'to', 'win'], include=False)
+            elif word == 'wanted':
+                nominee_text += look_forward(sent, j, end=['to', 'win'], include=False)
+            elif word == 'win':
+                nominee_text += look_backward(sent, j, end=["didnt"], include=False)
+            elif word == 'robbed':
+                nominee_text += look_backward(sent, j, end=["was"], include=False)
+                nominee_text += look_backward(sent, j, end=["got"], include=False)
+            elif word == 'beat':
+                nominee_text += look_forward(sent, j, start=['out'], include=False)
+            elif word == 'beats':
+                nominee_text += look_forward(sent, j, start=['out'], include=False)
+            elif word == 'no':
+                nominee_text += look_forward(sent, j, start=['win', 'for'], include=False)
+            elif word == 'up' and j < len(sent) - 1 and sent[j + 1] == 'for':
+                nominee_text += look_backward(sent, j, end=['is'], include=False)
+            elif word == 'why' and j < len(sent) - 2 and sent[j + 1] == 'not':
+                nominee_text += look_forward(sent, j+1)
+        if len(nominee_text) > 0:
+            nominees[i-1].append([nominee_text, ts])
+    return nominees
+
+
+@ray.remote
 def extract_nominees(data, indices):
     nominees = []
     tss = data.iloc[range(*indices)]['timestamp_ms'].tolist()
@@ -322,16 +398,25 @@ def process(data_len, data_ref, n_CPU=4):
     order = np.argsort([x[2] for x in winner_grouped[:-1]])
     timestamps = [winner_grouped[i][2] for i in order]
 
-    nominees_raw = ray_data_workers(extract_nominees, collect_combine, n_CPU, data_len, data_ref)
-    nominees_unique = unique_ngrams_ts(nominees_raw, start=timestamps[0])
-    nominees_ref = ray.put(nominees_unique)
-    nominees = ray_data_workers(filter_by_timestamp, collect_combine_n, n_CPU, data_len, nominees_ref, timestamps, False)
+    if data_len < 500000:
+        nominees_raw = ray_data_workers(extract_nominees, collect_combine, n_CPU, data_len, data_ref)
+        nominees_unique = unique_ngrams_ts(nominees_raw, start=timestamps[0])
+        nominees_ref = ray.put(nominees_unique)
+        nominees = ray_data_workers(filter_by_timestamp, collect_combine_n, n_CPU, data_len, nominees_ref, timestamps, False)
+    else:
+        nominees_raw = ray_data_workers(extract_nominees_ts, collect_combine_n, n_CPU, data_len, data_ref, timestamps)
+        nominees = ray_res_workers(unique_ngrams_ray, collect, nominees_raw)
     # order by award list
     nominees_ordered = [nominees[list(order).index(i)] for i in range(len(nominees))]
     nominees_filtered = ray_res_workers(disqualify_kwd, collect, nominees_ordered)
-    nominees_dedup = ray_res_workers(remove_duplicate_sublist_str, collect, nominees_filtered)
-    nominee_grouped = ray_res_workers(remove_dup_single, collect, nominees_dedup)
-    nominee_grouped = ray_data_workers(rerank_nominees, rerank_combine, n_CPU, data_len, data_ref, nominee_grouped)
+
+    if data_len < 500000:
+        nominees_dedup = ray_res_workers(remove_duplicate_sublist_str, collect, nominees_filtered)
+        nominee_grouped = ray_res_workers(remove_dup_single, collect, nominees_dedup)
+        nominee_grouped = ray_data_workers(rerank_nominees, rerank_combine, n_CPU, data_len, data_ref, nominee_grouped)
+    else:
+        nominees_dedup = ray_res_workers(remove_duplicate_sublist_str_ts, collect, nominees_filtered)
+        nominee_grouped = ray_res_workers(remove_dup_single_ts, collect, nominees_dedup)
 
     # remove winners from nominees
     for i, noms in enumerate(nominee_grouped):
@@ -345,9 +430,6 @@ def process(data_len, data_ref, n_CPU=4):
 
     nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
 
-    presenters_raw = ray_data_workers(extract_presenters, collect_combine, n_CPU, data_len, data_ref)
-    demille_presenters_raw = ray_data_workers(extract_presenters_demille, collect_combine, n_CPU, data_len, data_ref)
-
     ts_diff = np.diff(timestamps)
     timestamps_mid = [int(timestamps[0] - ts_diff[0]/2)]
     for i, dt in enumerate(ts_diff):
@@ -356,6 +438,8 @@ def process(data_len, data_ref, n_CPU=4):
         else:
             timestamps_mid.append(timestamps_mid[i] + ts_diff[i] / 2 + ts_diff[i - 1] / 2)
 
+    presenters_raw = ray_data_workers(extract_presenters, collect_combine, n_CPU, data_len, data_ref)
+    demille_presenters_raw = ray_data_workers(extract_presenters_demille, collect_combine, n_CPU, data_len, data_ref)
     demille_presenters = unique_strs_ts(demille_presenters_raw)
     demille_presenters = ray_res_workers(combine_presenters, collect, [demille_presenters])[0]
     demille_presenters = ray_res_workers(combine_presenter_sublists, collect, [demille_presenters])[0][0][0]
@@ -377,13 +461,11 @@ def process(data_len, data_ref, n_CPU=4):
     # order by award list
     presenters = [cands[0][0] for cands in presenter_grouped]
 
-    award_lst.append(['cecil', 'b.', 'demille', 'award'])
+    full_award_lst = award_lst + [['cecil', 'b.', 'demille', 'award']]
     nominees.append([])
     presenters.append(demille_presenters)
-
-    eval_nominees(nominees, 2013, award_map_inv, award_lst)
-    eval_presenters(presenters, 2013, award_map_inv, award_lst)
-
+    # eval_nominees(nominees, 2013, award_map_inv, full_award_lst)
+    # eval_presenters(presenters, 2013, award_map_inv, full_award_lst)
     return hosts, award_cand, winners, nominees, presenters
 
 
@@ -397,13 +479,14 @@ if __name__ == '__main__':
     data_len = len(data)
     data_ref = ray.put(data)
     hosts, award_cand, winners, nominees, presenters = process(data_len, data_ref, n_CPU)
+    full_award_lst = award_lst + [['cecil', 'b.', 'demille', 'award']]
     json_output = {}
     json_output['hosts'] = hosts
     json_output['award_data'] = {}
     print('Host(s): ' + ', '.join(capitalize(hosts)))
     print('Awards identified (top 25):\n\t' + '\n\t'.join(capitalize(award_cand)))
     print('\nUsing hardcoded award names, the following award information was found:')
-    for i, award in enumerate(award_lst):
+    for i, award in enumerate(full_award_lst):
         formal_name = award_map_inv[' '.join(award)]
         print('\nAward:\n\t' + capitalize([formal_name])[0])
         print('Presenter(s):\n\t' + ', '.join(capitalize(presenters[i])))

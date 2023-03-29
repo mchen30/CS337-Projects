@@ -2,6 +2,7 @@ import numpy as np
 from functools import reduce
 import ray
 import json
+from copy import deepcopy
 
 
 def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None, max_len=99):
@@ -135,7 +136,7 @@ def filter_host_kwd(lst):
 
 
 def filter_award_kwd(lst):
-    excl_kwds = ['show', 'performance', 'for', 'golden', 'globe']
+    excl_kwds = ['show', 'performance', 'for', 'golden', 'globe', 'and']
     remove = []
     for i, award in enumerate(lst):
         for word in award:
@@ -152,6 +153,19 @@ def remove_duplicate_sublist(sorted_ca):
     for ca1 in sorted_ca:
         for ca2 in sorted_ca:
             if is_StrictSublist(ca2[0], ca1[0]) and ca1[1] <= ca2[1]:
+                if ca1 not in removal:
+                    removal.append(ca1)
+    for to_remove in removal:
+        sorted_ca.remove(to_remove)
+    return sorted_ca
+
+
+@ray.remote
+def remove_duplicate_sublist_str_ts(sorted_ca):
+    removal = []
+    for ca1 in sorted_ca:
+        for ca2 in sorted_ca:
+            if len(ca1[0]) < len(ca2[0]) and ca1[0] in ca2[0] and ca1[1] <= ca2[1] * 1.5:
                 if ca1 not in removal:
                     removal.append(ca1)
     for to_remove in removal:
@@ -205,6 +219,38 @@ def untie(sorted_ca):
             max_len = len(sorted_ca[idx][0])
         idx += 1
     return [best, freq, timestamp]
+
+
+@ray.remote
+def unique_ngrams_ray(ngrams_lst, start=None):
+    cnt = []
+    all_ngrams = {}
+    timestamp = {}
+    timestamp_init = {}
+    for ngrams in ngrams_lst:
+        for ngram in ngrams[0]:
+            ngram_str = ' '.join(ngram)
+            if ngram_str not in all_ngrams:
+                all_ngrams[ngram_str] = 1
+                if start is None or ngrams[1] >= start:
+                    timestamp[ngram_str] = ngrams[1]
+                else:
+                    timestamp[ngram_str] = np.inf
+                    timestamp_init[ngram_str] = ngrams[1]
+            # find earliest occurrence
+            elif ngrams[1] < timestamp[ngram_str]:
+                timestamp[ngram_str] = ngrams[1]
+                all_ngrams[ngram_str] += 1
+            else:
+                all_ngrams[ngram_str] += 1
+    # prefer occurrences after t=start
+    for ng in timestamp.keys():
+        if timestamp[ng] == np.inf:
+            timestamp[ng] = timestamp_init[ng]
+    for uni_ngram in all_ngrams:
+        cnt.append([uni_ngram.split(), all_ngrams[uni_ngram], timestamp[uni_ngram]])
+    sorted_cnt = sorted(cnt, key=lambda x: x[1], reverse=True)
+    return sorted_cnt
 
 
 # merge and count
@@ -312,11 +358,10 @@ def disqualify_kwd(results):
             'tl', 'woah', 'penis', 'fukk', 'awks', 'uzu', 'jld', 'tbh', 'bomer', 'desplat', 'richly', 'smh', 'cb', 'hating',
             'scene', 'd', 'globes', 's', 'gifs', 'gif', 'unfortunately', 'goddammit', 'soundtrack', 'nomination', 'news',
             'aargh', 'suprised', 'faves', 'actresses', 'actress', 'nominated', 'ya', 'disappointed', 'nawl', 'sia',
-            'miniseries']
+            'miniseries', 'knows']
 
     kwds_partial = ['sss', 'aaa', 'mmm', 'uuu', 'ooo', 'kkk', 'rrr', 'fff', 'ww', '_', 'truly believe', 'i think', 'suck',
-                    'just won', 'pfft', 'ripped off', 'win something', "doesnt think", 'looks amazing', 'is amazing'
-                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                    'just won', 'pfft', 'ripped off', 'win something', "doesnt think", 'looks amazing', 'is amazing',
                     'i just', 'pleased with', 'golden globes', 'wow', 'at the', 'gah', 'just wait', 'i suppose',
                     'we just', 'at the', 'best performance', 'hh', 'gah', 'i mean', 'only reason', 'find out', 'nono',
                     'tv series', 'thank god', 'thank zeus', 'in the name', 'other news', 'behind on', 'nbc', 'right now',
@@ -328,7 +373,8 @@ def disqualify_kwd(results):
                     'always felt', 'i guess', 'this show', 'like the', 'like i', 'feel like', 'ive heard', 'this day',
                     'your favorites', 'i love', 'all in all', 'is theft', 'all the way', 'globe award', 'a lot', 'proud of',
                     'was incredible', 'hate this', 'a tuesday', 'the cast', 'guess i', 'wins the', 'first off', 'me after',
-                    'all know', 'heavy hitters', 'understand how', 'use these', 'weve all', 'all the', 'go all',]
+                    'all know', 'heavy hitters', 'understand how', 'use these', 'weve all', 'all the', 'go all',
+                    'how the']
 
     kwds_full = ['the', 'me', 'follow', 'new', 'goldenglobes', 'guy', 'at', 'from', 'in', 'sound', 'so', 'girl',
                  'too', 'her', 'his', 'les', 'lee', 'amy', 'tina', 'say', 'even', 'dick', 'further', 'god',
@@ -433,11 +479,12 @@ def disqualify_kwd_str(results, kwds_full):
 
 
 @ray.remote
-def remove_dup_single(res):
+def remove_dup_single_ts(res):
     remove = []
     for i, e in enumerate(res):
         e_l = e[0].split(' ')
         if len(e_l) == 1:
+            # comparing against top 15 works better on gg2013
             for j, x in enumerate(res):
                 x_l = x[0].split(' ')
                 if len(x_l) > 1 and e[0] in x_l:
@@ -446,6 +493,20 @@ def remove_dup_single(res):
     remove = sorted(remove, reverse=True)
     for idx in remove:
         res.remove(res[idx])
+    return res
+
+
+@ray.remote
+def remove_dup_single(res):
+    top = deepcopy(res[:15])
+    for e in res:
+        e_l = e[0].split(' ')
+        cand_sups = []
+        for x in top:
+            if len(x[0].split(' ')) > 1:
+                cand_sups.append(x[0])
+        if len(e_l) == 1 and any([e[0] in c for c in cand_sups]):
+            res.remove(e)
     return res
 
 
@@ -588,10 +649,10 @@ def rerank_ts(data, indices, lsts, ts):
     for l in lsts:
         for e in l: e[1] = 0
     texts = data.iloc[range(*indices)]['text'].tolist()
-    ts = data.iloc[range(*indices)]['timestamp_ms'].tolist()
-    for k, text in enumerate(texts):
+    tss = data.iloc[range(*indices)]['timestamp_ms'].tolist()
+    for n, text in enumerate(texts):
         if 'dress' not in text or 'present' in text:
-            t = ts[k]
+            t = tss[n]
             i = 0
             while i < ts_len and t > ts[i]:
                 i += 1
@@ -667,20 +728,18 @@ def eval_nominees(nominees, year, award_map_inv, awards):
     ans = json.load(open(f'gg{year}answers.json'))
     p = [ans['award_data'][award_map_inv[' '.join(a)]]['nominees'] for a in awards]
     p_res = [[] for _ in range(len(p))]
-    true = 0
-    tot = 0
+    true = tot = 0
     for i, ps in enumerate(p):
         for n in ps:
             # exact spelling required
             if n in nominees[i]:
-                p_res[i].append([n, True])
-                true += 1; tot += 1
+                p_res[i].append([n, True]); true += 1; tot += 1
             else:
                 p_res[i].append([n, False]); tot += 1
-    print(true / tot)
+    print(f'Nominees extraction accuracy is {true / tot}')
     for i, r in enumerate(p_res):
         print(r)
-        print(nominees[i])
+        # print(nominees[i])
 
 
 # debugging only
@@ -688,17 +747,15 @@ def eval_presenters(presenters, year, award_map_inv, awards):
     ans = json.load(open(f'gg{year}answers.json'))
     p = [ans['award_data'][award_map_inv[' '.join(a)]]['presenters'] for a in awards]
     p_res = [[] for _ in range(len(p))]
-    true = 0
-    tot = 0
+    true = tot = 0
     for i, ps in enumerate(p):
         for n in ps:
             # exact spelling required
             if n in presenters[i]:
-                p_res[i].append([n, True])
-                true += 1; tot += 1
+                p_res[i].append([n, True]); true += 1; tot += 1
             else:
                 p_res[i].append([n, False]); tot += 1
-    print(true / tot)
+    print(f'Presenters extraction accuracy is {true / tot}')
     for i, r in enumerate(p_res):
         print(r)
-        print(presenters[i])
+        # print(presenters[i])

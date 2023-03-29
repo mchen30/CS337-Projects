@@ -99,23 +99,24 @@ def main():
     host['2015'], award['2015'], winner['2015'], nominee['2015'], presenter['2015'] = process(data_len2015,
                                                                                               data_ref2015,
                                                                                               n_CPU)
+    award_lst.append(['cecil', 'b.', 'demille', 'award'])
     for y in ['2013', '2015']:
         print(f'\nFor the Golden Globes Award Ceremony in {y}:')
         json_output = {}
-        print('Host(s): ' + ', '.join(capitalize(host[y])))
         json_output['hosts'] = host[y]
         json_output['award_data'] = {}
+        print('Host(s): ' + ', '.join(capitalize(host[y])))
         print('Awards identified (top 25):\n\t' + '\n\t'.join(capitalize(award[y])))
         print('\nUsing hardcoded award names, the following award information was found:')
         for i, a in enumerate(award_lst):
             formal_name = award_map_inv[' '.join(a)]
             print('\nAward:\n\t' + capitalize([formal_name])[0])
-            json_output['award_data'][formal_name] = {}
             print('Presenter(s):\n\t' + ', '.join(capitalize(presenter[y][i])))
-            json_output['award_data'][formal_name]['presenters'] = presenter[y][i]
             print('Nominees:\n\t' + '\n\t'.join(capitalize(nominee[y][i])))
-            json_output['award_data'][formal_name]['nominees'] = nominee[y][i]
             print('Winner:\n\t' + capitalize([winner[y][i]])[0])
+            json_output['award_data'][formal_name] = {}
+            json_output['award_data'][formal_name]['presenters'] = presenter[y][i]
+            json_output['award_data'][formal_name]['nominees'] = nominee[y][i]
             json_output['award_data'][formal_name]['winner'] = winner[y][i]
     return
 
