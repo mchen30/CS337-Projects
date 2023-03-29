@@ -105,6 +105,7 @@ broths = {'chicken broth': {'vegetarian': False, 'healthy': True, 'cuisine': Non
           'vegetable broth': {'vegetarian': True, 'healthy': True, 'cuisine': None},}
 
 condiments = {'oil': {'vegetarian': True, 'healthy': False, 'cuisine': None},
+              'vegetable oil': {'vegetarian': True, 'healthy': False, 'cuisine': None},
               'egg': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'garlic powder': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'black peppercorn': {'vegetarian': True, 'healthy': True, 'cuisine': None},
@@ -114,6 +115,8 @@ condiments = {'oil': {'vegetarian': True, 'healthy': False, 'cuisine': None},
               'oyster sauce': {'vegetarian': False, 'healthy': False, 'cuisine': None},
               'soy sauce': {'vegetarian': True, 'healthy': False, 'cuisine': None},
               'salt': {'vegetarian': True, 'healthy': False, 'cuisine': None},
+              'white sugar': {'vegetarian': True, 'healthy': False, 'cuisine': None},
+              'brown sugar': {'vegetarian': True, 'healthy': False, 'cuisine': None},
               'sugar': {'vegetarian': True, 'healthy': False, 'cuisine': None},
               'cumin': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'chicken bouillon': {'vegetarian': False, 'healthy': False, 'cuisine': None},
@@ -134,9 +137,10 @@ condiments = {'oil': {'vegetarian': True, 'healthy': False, 'cuisine': None},
               'vinegar': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'honey': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'yeast': {'vegetarian': True, 'healthy': True, 'cuisine': None},
-              'lemon': {'vegetarian': True, 'healthy': True, 'cuisine': None},
+              'lemon juice': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'balsamic vinegar': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'vinaigrette': {'vegetarian': True, 'healthy': True, 'cuisine': None},
+              'sriracha hot sauce': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'hot sauce': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'tamari': {'vegetarian': True, 'healthy': True, 'cuisine': None},
               'french dressing': {'vegetarian': True, 'healthy': True, 'cuisine': None},
@@ -375,6 +379,7 @@ class Recipe:
             Exception('Cuisine not implemented')
 
     def lactose_free(self):
+        self.name = 'Lactose-free ' + self.name
         lf_milk = []
         lf_yogurt = []
         lf_cheese = []
@@ -561,7 +566,7 @@ class Ingredient:
             self.change_ingredient(healthy_options[random.randint(0, len(healthy_options)-1)])
             return True
         elif self.type == 'condiment':
-            if self.name == 'salt' or self.name == 'oil' or self.name == 'sugar' or self.name == 'sweetner':
+            if 'salt' in self.name or 'oil' in self.name or 'sugar' in self.name or 'sweetner' in self.name:
                 self.half()
                 return True
             else:
@@ -600,7 +605,8 @@ class Ingredient:
             self.change_ingredient(unhealthy_options[random.randint(0, len(unhealthy_options)-1)])
             return True
         elif self.type == 'condiment':
-            if self.name == 'salt' or self.name == 'oil' or self.name == 'sugar' or self.name == 'sweetner':
+            if 'salt' in self.name or 'oil' in self.name or 'sugar' in self.name or 'sweetner' in self.name:
+
                 self.double()
                 return True
             else:
@@ -683,11 +689,17 @@ class Method:
         # run during every method/tool update, and ingredient update
         if len(orig) > 0 and len(new) > 0:
             if not orig[0].isupper():
-                self.text = re.sub(orig, new, self.text)
-                self.text = re.sub(orig[0].upper()+orig[1:], new[0].upper()+new[1:], self.text)
+                new_text = re.sub(orig, new, self.text)
+                if new_text == self.text:
+                    self.text = re.sub(orig[0].upper()+orig[1:], new[0].upper()+new[1:], self.text)
+                else:
+                    self.text = new_text
             else:
-                self.text = re.sub(orig, new, self.text)
-                self.text = re.sub(orig[0].lower()+orig[1:], new, self.text)
+                new_text = re.sub(orig, new, self.text)
+                if new_text == self.text:
+                    self.text = re.sub(orig[0].lower()+orig[1:], new, self.text)
+                else:
+                    self.text = new_text
 
     def half(self):
         for t in self.time:

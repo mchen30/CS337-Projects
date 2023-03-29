@@ -18,24 +18,24 @@ def transform():
     global recipe
     assert isinstance(recipe, Recipe)
     print('Please specify a transformation, the options are:')
-    print('\tVegetarian/Non-vegetarian')
-    print('\tHealthy/Unhealthy')
-    print('\tHalf/Double the serving size')
+    print('\tTo vegetarian/non-vegetarian')
+    print('\tTo healthy/unhealthy')
+    print('\tHalf/double the serving size')
     print('\tTo Chinese/Mexican')
-    print('\tLactose-free')
+    print('\tTo lactose-free')
     while True:
         xform = input().lower()
-        if xform == 'vegetarian':
+        if xform == 'to vegetarian':
             # change name
             recipe.to_vegetarian()
             break
-        elif xform == 'non-vegetarian':
+        elif xform == 'to non-vegetarian':
             recipe.to_non_vegetarian()
             break
-        elif xform == 'healthy':
+        elif xform == 'to healthy':
             recipe.to_healthy()
             break
-        elif xform == 'unhealthy':
+        elif xform == 'to unhealthy':
             recipe.to_unhealthy()
             break
         elif xform == 'half the serving size':
@@ -50,7 +50,7 @@ def transform():
         elif xform == 'to mexican':
             recipe.to_cuisine('mexican')
             break
-        elif xform == 'lactose-free':
+        elif xform == 'to lactose-free':
             recipe.lactose_free()
             break
         else:
@@ -59,17 +59,18 @@ def transform():
     print(recipe)
 
 
-recipe = None
-get_new_recipe()
-transform()
-while True:
-    print('Would you like to start over or add another transformation to this recipe? (start over/continue)')
-    choice = input().lower()
-    if choice == 'start over':
-        recipe = None
-        get_new_recipe()
-        transform()
-    elif choice == 'continue':
-        transform()
-    else:
-        print('Invalid option.')
+if __name__ == '__main__':
+    recipe = None
+    get_new_recipe()
+    transform()
+    while True:
+        print('Would you like to start over or add another transformation to this recipe? (start over/continue)')
+        choice = input().lower()
+        if choice == 'start over':
+            recipe = None
+            get_new_recipe()
+            transform()
+        elif choice == 'continue':
+            transform()
+        else:
+            print('Invalid option.')
