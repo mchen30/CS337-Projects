@@ -367,7 +367,6 @@ def extract_presenters(data, indices):
 
 
 def process(data_len, data_ref, n_CPU=4):
-    ray.init(num_cpus=n_CPU, ignore_reinit_error=True)
     hosts_raw = ray_data_workers(extract_hosts, collect_combine, n_CPU, data_len, data_ref)
     sorted_ca = unique_ngrams(hosts_raw)[:50]  # select only top fifty
     sorted_ca = remove_duplicate_sublist(sorted_ca)
@@ -471,6 +470,7 @@ def process(data_len, data_ref, n_CPU=4):
 
 if __name__ == '__main__':
     n_CPU = 4
+    ray.init(num_cpus=n_CPU)
     if len(sys.argv) > 1:
         year = sys.argv[1]
     else:

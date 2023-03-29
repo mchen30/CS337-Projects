@@ -64,6 +64,7 @@ def pre_ceremony():
     global data_len2015
     global data_ref2015
     n_CPU = 4
+    ray.init(num_cpus=n_CPU)
     data2013 = load('./gg2013.json', n_CPU)
     data2015 = load('./gg2015.json', n_CPU)
     data_len2013 = len(data2013)
@@ -86,13 +87,11 @@ def main():
     global nominee
     global presenter
     global winner
-    global n_CPU
     host = {}
     award = {}
     nominee = {}
     presenter = {}
     winner = {}
-    n_CPU = 4
     host['2013'], award['2013'], winner['2013'], nominee['2013'], presenter['2013'] = process(data_len2013,
                                                                                               data_ref2013,
                                                                                               n_CPU)

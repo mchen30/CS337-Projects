@@ -32,7 +32,6 @@ def clean(data, indices):
 
 
 def load(path, n_CPU):
-    ray.init(num_cpus=n_CPU, ignore_reinit_error=True)
     data = pd.read_json(path, orient='records', dtype={'text': 'object', 'timestamp_ms': 'int64',
                                                        'user': 'bool', 'id': 'bool'})
     data_ref = ray.put(data.text)
