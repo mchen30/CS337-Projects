@@ -4,7 +4,7 @@
 - Complete basic tasks with good accuracy, and
 - Fully parallelized the program using Ray
 
-The program can be run from the terminal and the relevant award information will be printed in a human-readable format. Json conversion of the results is implemented but not used for the auto-grader. Additional API integration for the autograder is done in gg_api.py, and the pre-ceremony() and main() functions are called from within autograder.py.
+The program can be run from the terminal and the relevant award information will be printed in a human-readable format. JSON conversion of the results is implemented but not used for the auto-grader. Additional API integration for the autograder is done in gg_api.py, and gg_api.pre-ceremony() and gg_api.main() are called from within autograder.py. The program is tested with Python 3.10. 
 
 The program retrieves the hosts accurately for both 2013 and 2015. The top 25 award titles extracted are returned to the autograder. They cover most of the awards, but the formatting and spelling may vary which makes it difficult to assign a completion score by the autograder in practice. 
 
@@ -12,11 +12,11 @@ Hard-coded award names are then used to extract the winners, nominees and presen
 
 The extracted winners are then used to find the earliest timestamp associated with the announcement of the winners. This proves a highly effective way to segment the ceremony by the award types. The award orders in the ceremony are extracted perfectly both for 2013 and 2015.
 
-The information is then used to improve the extraction and re-ranking accuracy of the nominees and presenters. The nominees and presenters are first extracted using a set of heuristics, and then combined both by merging sublists into superlists and soft merging substrings into superstrings by assigning the superstring a higher weight if the superstring has a comparable frequency in the dataset as the substring. This proves a fairly effective way to return the full names of the nominees and presenters without returning irrelevant functional words from the data. Winners and hosts are removed from the nominees and presenters, respectively. 
+The information is then used to improve the extraction and re-ranking accuracy of the nominees and presenters. The nominees and presenters are first extracted using a set of heuristics, sorted into timeslots for the awards, and then combined both by merging sublists into superlists and soft merging substrings into superstrings by assigning the superstring a higher weight if the superstring has a comparable frequency in the dataset as the substring. On small datasets such as gg2013, an additional re-ranking step on the full data is performed to better identify real movies and names. This proves a fairly effective way to return the full names of the nominees and presenters without returning irrelevant functional words from the data. Winners and hosts are removed from the nominees and presenters, respectively. 
 
-In practice, the program returns exact spellings for 38% and 44% of all the nominees for each award in 2013 and 2015, respectively, not including nearly correct spellings that miss punctuations in names. It also returns exact spellings for 70% and 65% of the presenters in 2013 and 2015, not including any partial representations of movies or names. The full string comparison evaluation functions for nominees and presenters are included in utils.py and can be called at the end of process().
+In practice, the program returns exact spellings for 38% and 44% of award nominees in 2013 and 2015, respectively, not including nearly correct spellings that miss punctuations in names. It also returns exact spellings for 70% and 65% of the presenters in 2013 and 2015, not including any partial representations of movies or names. The full string comparison evaluation functions for nominees and presenters are included in utils.py and can be called at the end of process(). The autograder returns a different completion score for some reason.
 
-The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program minimizes data copying in worker threads. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in less than a minute on a server node, of which half the time was used in pd.read_json(). Modin was tested to further parallelize pandas operations but the gains were limited, so it was not included in the final version. On a quad-core laptop, the total run time is about 3 minutes. The number of (physical) CPU cores used can be configured in gg_api.pre_ceremony(), or in process.py.
+The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program minimizes data copying in worker threads. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in less than a minute on a server node, of which half the time was used in pd.read_json(). Modin was tested to further parallelize pandas operations but the gains were limited, so it was not included in the final version. On a quad-core laptop, the total run time is about 3 minutes. The number of (physical) CPU cores used can be configured in gg_api.pre_ceremony(), or in process.main().
 
 
 
@@ -26,7 +26,7 @@ The program is fully parallelized in Ray which makes it a breeze to run on large
 - Double or half the serving size (including cooking time)
 - Make recipe lactose-free 
 
-The program is interactive and allows the user to make multiple transformations to a recipe or to start over after a transformation is complete by retrieving another recipe from AllRecipe.com
+The program is interactive and allows the user to make multiple transformations to a recipe or to start over after a transformation is complete by retrieving another recipe from AllRecipe.com. The program is tested with Python 3.10.
 
 The program parses one or more methods from each step and links it with the relevant ingredients. A change in the ingredient will correctly display in the steps as well. The ingredient quantity uses fractional representation for visual appeal.
 
