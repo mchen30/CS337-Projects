@@ -20,17 +20,22 @@ def clean(data, indices):
                 new_sent.append('and')
             elif '...' in word:
                 new_sent.append(word.replace('...', ' ').lower())
-            elif word.startswith('@') and i > 0 and sent[i - 1] == 'RT':
+            elif '@' in word and i > 0 and sent[i - 1] == 'RT':
                 new_sent = []
-            elif word.startswith('@') and word.lower() != '@goldenglobes':
+            elif '@' in word and word.lower() != '@goldenglobes':
                 continue
             else:
                 # remove punctuation and case
-                new_sent.append(word.lower())
-        new_sent_str = re.sub(r'[^\w\s]', '', " ".join(new_sent))
-        new_sent_str = re.sub(r'miniseriestv', 'miniseries or tv', new_sent_str)
+                new_word = re.sub(r'[^\w\s]', '', word.lower())
+                if len(new_word) > 0:
+                    new_sent.append(new_word)
+        new_sent_str = re.sub(r'miniseriestv', 'miniseries or tv', " ".join(new_sent))
         new_sent_str = re.sub(r'comedymusical', 'comedy or musical', new_sent_str)
         new_sent_str = re.sub(r'televisionseries', 'tv series', new_sent_str)
+        new_sent_str = re.sub(r'seriesminiseries', 'series miniseries', new_sent_str)
+        new_sent_str = re.sub(r'seriestv', 'series tv', new_sent_str)
+        new_sent_str = re.sub(r'movieminiseries', 'movie miniseries', new_sent_str)
+        new_sent_str = re.sub(r'musicalcomedy', 'musical comedy', new_sent_str)
         texts.append(unidecode.unidecode(new_sent_str))
     return texts
 

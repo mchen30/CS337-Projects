@@ -173,10 +173,22 @@ def filter_award_kwd(lst):
         lst.remove(lst[idx])
     return lst
 
+
+def filter_award_sorted(lst):
+    remove = []
+    for i, award in enumerate(lst):
+        if award[0][0] != 'best' or len(award[0]) <= 2:
+            remove.append(i)
+    remove = sorted(remove, reverse=True)
+    for idx in remove:
+        lst.remove(lst[idx])
+    return lst
+
+
 def filter_award(lst):
     remove = []
     for i, award in enumerate(lst):
-        if award[0] != 'best':
+        if award[0] != 'best' or len(award) <= 2:
             remove.append(i)
     remove = sorted(remove, reverse=True)
     for idx in remove:
@@ -233,44 +245,18 @@ def remove_all_sublists(sorted_ca):
     return [x[0] for x in sorted_ca]
 
 
-def remove_strict_subsets(award_cand):
-    award_cand = _remove_strict_subsets(award_cand, limit=6)
-    award_cand = _remove_strict_subsets(award_cand, limit=12)
-    return award_cand
+def remove_subsets_sorted(sorted_cand):
+    sorted_cand = _remove_subsets_sorted(sorted_cand, limit=5)
+    sorted_cand = _remove_subsets_sorted(sorted_cand, limit=5)
+    sorted_cand = _remove_subsets_sorted(sorted_cand, limit=10)
+    return sorted_cand
 
 
-def remove_subsets(award_cand):
-    award_cand = _remove_subsets(award_cand, limit=6)
-    award_cand = _remove_subsets(award_cand, limit=12)
-    return award_cand
-
-
-def _remove_strict_subsets(award_cand, limit=5):
+def _remove_subsets_sorted(sorted_cand, limit=5, synonym=True):
+    parents = [-np.inf] * len(sorted_cand)
     removal = []
-    award_cand_rev = award_cand[::-1]
-    all_sets = [set(c) for c in award_cand_rev]
-    for i, c_set in enumerate(all_sets):
-        j = 0
-        found = False
-        while j < len(all_sets) and not found:
-            if i == j:
-                j += 1
-                continue
-            c_super = all_sets[j]
-            diff = c_super - c_set
-            if c_set < c_super and len('  '.join(diff)) < limit:
-                removal.append(len(award_cand) - i - 1)
-                found = True
-            j += 1
-    for idx in removal:
-        award_cand.remove(award_cand[idx])
-    return award_cand
-
-
-def _remove_subsets(award_cand, limit=5, synonym=True):
-    removal = []
-    award_cand_rev = award_cand[::-1]
-    all_sets = [set(c) for c in award_cand_rev]
+    sorted_cand_rev = sorted_cand[::-1]
+    all_sets = [set(c[0]) for c in sorted_cand_rev]
     for i, c_set in enumerate(all_sets):
         j = 0
         found = False
@@ -281,26 +267,64 @@ def _remove_subsets(award_cand, limit=5, synonym=True):
             c_super = all_sets[j]
             if synonym and 'movie' in c_set:
                 syn = set.union(c_set - {'movie'}, {'motion', 'picture'})
-                if syn <= c_super and len('  '.join(c_super - syn)) < limit:
-                    removal.append(len(award_cand) - i - 1)
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
                     found = True
             elif synonym and 'film' in c_set:
                 syn = set.union(c_set - {'film'}, {'motion', 'picture'})
-                if syn <= c_super and len('  '.join(c_super - syn)) < limit:
-                    removal.append(len(award_cand) - i - 1)
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
                     found = True
             if not found and synonym and 'for' in c_set:
                 syn = set.union(c_set - {'for'}, {'in', 'a'})
-                if syn <= c_super and len('  '.join(c_super - syn)) < limit:
-                    removal.append(len(award_cand) - i - 1)
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
                     found = True
-            if not found and ((c_set < c_super and len('  '.join(c_super - c_set)) < limit) or (c_set == c_super and i < j)):
-                removal.append(len(award_cand) - i - 1)
+            if not found and synonym and 'picture' in c_set and 'motion' not in c_set:
+                syn = set.union(c_set - {'picture'}, {'motion', 'picture'})
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
+                    found = True
+            if not found and synonym and 'television' in c_set:
+                syn = set.union(c_set - {'television'}, {'tv'})
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
+                    found = True
+            if not found and synonym and 'tv' in c_set and 'show' in c_set:
+                syn = set.union(c_set - {'tv', 'show'}, {'tv', 'series'})
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
+                    found = True
+            if not found and synonym and 'tv' in c_set and 'series' not in c_set:
+                syn = set.union(c_set - {'tv'}, {'tv', 'series'})
+                if syn <= c_super and len(' '.join(c_super - syn)) < limit:
+                    removal.append(len(sorted_cand) - i - 1)
+                    parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
+                    found = True
+            if not found and ((c_set < c_super and len(' '.join(c_super - c_set)) < limit) or (c_set == c_super and i < j)):
+                removal.append(len(sorted_cand) - i - 1)
+                parents[len(sorted_cand) - i - 1] = len(sorted_cand) - j - 1
                 found = True
             j += 1
     for idx in removal:
-        award_cand.remove(award_cand[idx])
-    return award_cand
+        score = sorted_cand[idx][1]
+        # add candidate score to final parent node
+        parent = parents[idx]
+        while True:
+            if parents[parent] != -np.inf:
+                parent = parents[parent]
+            else:
+                break
+        sorted_cand[parent][1] += score
+    for idx in removal:
+        sorted_cand.remove(sorted_cand[idx])
+    return sorted(sorted_cand, key=lambda x: x[1], reverse=True)
 
 
 def remove_kwd(award_cand):
@@ -862,7 +886,7 @@ def eval_nominees(nominees, year, award_map_inv, awards):
     print(f'Nominees extraction accuracy is {true / tot}')
     for i, r in enumerate(p_res):
         print(r)
-        # print(nominees[i])
+        print(nominees[i])
 
 
 # debugging only
@@ -881,4 +905,4 @@ def eval_presenters(presenters, year, award_map_inv, awards):
     print(f'Presenters extraction accuracy is {true / tot}')
     for i, r in enumerate(p_res):
         print(r)
-        # print(presenters[i])
+        print(presenters[i])

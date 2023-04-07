@@ -58,10 +58,14 @@ def extract_awards_alt(data, indices):
     for sent in sents:
         for i, word in enumerate(sent):
             if word == 'goes' and i+1 < len(sent) and sent[i+1] == 'to':
-                ca_set_awards += look_backward(sent, i+2, end=['goes', 'to'], start_exclude=['at', 'the', 'golden', 'globes', 'globe'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+                ca_set_awards += look_backward(sent, i+2, end=['goes', 'to'], start_exclude=['at', 'the', 'golden', 'globes', 'globe', 'for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             # xxx wins #goldenglobe for AWARD for role/movie
             elif word == 'wins' and i+1 < len(sent) and sent[i+1] == 'for':
                 ca_set_awards += look_forward(sent, i-1, start=['wins', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+            elif word == 'won' and i+1 < len(sent) and sent[i+1] == 'for':
+                ca_set_awards += look_forward(sent, i-1, start=['won', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+            elif word == 'won' and i+1 < len(sent) and sent[i+1] == 'for' and i > 0 and sent[i-1] == 'has':
+                ca_set_awards += look_forward(sent, i-2, start=['has', 'won', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             # AWARD is awarded to xxx
             elif word == 'awarded' and 1 < i+1 < len(sent) and sent[i+1] == 'to' and sent[i-1] == 'is':
                 ca_set_awards += look_backward(sent, i+2, end=['is', 'awarded', 'to'], include=False)
@@ -70,7 +74,9 @@ def extract_awards_alt(data, indices):
                 ca_set_awards += look_backward(sent, i+2, end=['awarded', 'to'], include=False, end_exclude=['is'])
             # winner for AWARD is xxx
             elif word == 'winner' and i+3 < len(sent) and sent[i+1] == 'for':
+                # TODO removed is
                 ca_set_awards += look_forward(sent, i-1, start=['winner', 'for'], end=['is'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+                #print(' '.join(sent))
             # someone presents AWARD to xxx
             elif word == 'presents' and i+2<len(sent) and sent[i+2] == 'to':
                 ca_set_awards += look_forward(sent, i-1, start=['presents'], end=['to'], include=False)
@@ -79,8 +85,12 @@ def extract_awards_alt(data, indices):
                 ca_set_awards += look_forward(sent, i-2, start=['has', 'won', 'the', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             elif word == 'won' and i+3 < len(sent) and sent[i+1] == 'the' and sent[i+2] == 'for':
                 ca_set_awards += look_forward(sent, i-1, start=['won', 'the', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+            elif word == 'wins' and i + 4 < len(sent) and sent[i + 1] == 'the' and sent[i + 2] == 'award' and sent[i + 3] == 'for':
+                ca_set_awards += look_forward(sent, i - 1, start=['wins', 'the', 'award', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             elif word == 'wins' and i+3 < len(sent) and sent[i+1] == 'the' and sent[i+2] == 'for':
                 ca_set_awards += look_forward(sent, i-1, start=['wins', 'the', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+            elif word == 'win' and i + 3 < len(sent) and sent[i + 1] == 'the' and sent[i + 2] == 'for':
+                ca_set_awards += look_forward(sent, i - 1, start=['win', 'the', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             # xxx wins/won/has won the golden globe for AWARD
             elif word == 'won' and i + 5 < len(sent) and i>0 and sent[i-1] == 'has' and sent[i + 1] == 'the':
                 ca_set_awards += look_forward(sent, i-2, start=['has', 'won', 'the', 'golden', 'globe', 'for'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
@@ -98,7 +108,7 @@ def extract_awards_alt(data, indices):
             elif word == 'won' and i > 0 and sent[i-1] == 'has':
                 ca_set_awards += look_forward(sent, i-2, start=['has', 'won'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             elif word == 'won':
-                ca_set_awards += look_forward(sent, i-1, start=['wins'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
+                ca_set_awards += look_forward(sent, i-1, start=['won'], end=['for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
 
     return ca_set_awards
 
@@ -430,15 +440,15 @@ def process(data_len, data_ref, n_CPU=4):
         hosts = ' '.join(ca[0]).split(' and ')
 
     awards_raw = ray_data_workers(extract_awards_alt, collect_combine, n_CPU, data_len, data_ref)
-    sorted_awards = unique_ngrams(awards_raw)[:250]
+    if data_len < 500000:
+        sorted_awards = unique_ngrams(awards_raw)[:200]
+    else:
+        sorted_awards = unique_ngrams(awards_raw)[:400]
+    sorted_awards = filter_award_sorted(sorted_awards)
     award_cand = remove_all_sublists(sorted_awards)
-    award_cand = filter_award(award_cand)
-    award_cand = remove_subsets(award_cand)
-    # this option removes kwd ('dress', 'globe') and helps extract 1 more awards for 2015
-    # award_cand = remove_kwd(award_cand)
-    sorted_awards = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, award_cand)[:26]
-    award_cand = [' '.join(cand[0]) for cand in sorted_awards]
-
+    sorted_awards = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, award_cand)
+    sorted_awards = remove_subsets_sorted(sorted_awards)
+    award_cand = [' '.join(cand[0]) for cand in sorted_awards[:26]]
 
     winners_raw = ray_data_workers(extract_winners, collect_combine_n, n_CPU, data_len, data_ref, award_lst)
     winner_grouped = ray_res_workers(untie_raw_winners, collect, winners_raw)
@@ -478,9 +488,8 @@ def process(data_len, data_ref, n_CPU=4):
         remove = sorted(remove, reverse=True)
         for idx in remove:
             noms.remove(noms[idx])
-
     nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
-
+    
     ts_diff = np.diff(timestamps)
     timestamps_mid = [int(timestamps[0] - ts_diff[0]/2)]
     for i, dt in enumerate(ts_diff):
