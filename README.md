@@ -18,7 +18,7 @@ In practice, the program returns exact spellings for 38% and 44% of award nomine
 
 The program is fully parallelized in Ray which makes it a breeze to run on larger datasets such as the gg2015.json if multiple CPU cores are available. The program minimizes data copying in worker threads. It completed all extraction tasks for gg2015.json including multiple re-ranking steps in less than a minute on a server node, of which half the time was used in pd.read_json(). Modin was tested to further parallelize pandas operations but the gains were limited, so it was not included in the final version. On a quad-core laptop, the total run time is about 3 minutes. The number of (physical) CPU cores used can be configured in gg_api.pre_ceremony(), or in process.main().
 
-
+<img alt="gg2013-awards.PNG" height="800" src="gg2013-awards.PNG"/><img alt="gg2015-awards.PNG" height="800" src="gg2015-awards.PNG"/>
 
 ## Project 2: Recipe Extraction and Transformation
 - Completed basic tasks, and

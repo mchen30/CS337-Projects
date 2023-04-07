@@ -5,57 +5,83 @@ import json
 from copy import deepcopy
 
 
-def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None, max_len=99):
+def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None, end_exclude=None, max_len=99):
     ngrams = []
     offset = None
+    end_offset = 0
     if include:
         offset = 0
-    elif start is not None:
+    elif start is not None and end is None:
         offset = len(start)
-    elif end is not None:
+    elif end is not None and start is None:
         offset = len(end)
+    else:
+        start_offset = len(start)
+        end_offset = len(end)
+        offset = start_offset
     for length in range(1, min(max_len + 1, len(sent) - ind)):
-        if start_exclude is not None and sent[ind+1] in start_exclude:
+        if start_exclude is not None and sent[ind+1+offset] in start_exclude:
+            break
+        elif end_exclude is not None and sent[ind+length-end_offset] in end_exclude:
             break
         elif start is None and end is None:
             res = sent[ind+1: ind+length+1]
             if len(res) > 0:
                 ngrams.append(res)
-        elif start is not None and len(start) <= length and sent[ind+1: ind+len(start)+1] == start:
+        elif start is not None and end is None and len(start) <= length and sent[ind+1: ind+len(start)+1] == start:
             res = sent[ind+1+offset: ind+length+1]
             if len(res) > 0:
                 ngrams.append(res)
-        elif end is not None and len(end) <= length and sent[ind+length+1-len(end):ind+length+1] == end:
+        elif end is not None and start is None and len(end) <= length and sent[ind+length+1-len(end):ind+length+1] == end:
             res = sent[ind+1: ind+length+1-offset]
             if len(res) > 0:
                 ngrams.append(res)
+        elif start is not None and end is not None and len(start) <= length and len(end) <= length and sent[ind+1: ind+len(start)+1] == start and sent[ind+length+1-len(end):ind+length+1] == end:
+            res = sent[ind+1+start_offset: ind+length+1-end_offset]
+            if len(res) > 0:
+                ngrams.append(res)
+                # greedy match end token
+                break
     return ngrams
 
 
-def look_backward(sent, ind, start=None, end=None, include=True, end_exclude=None, max_len=99):
+def look_backward(sent, ind, start=None, end=None, include=True, start_exclude=None, end_exclude=None, max_len=99):
     ngrams = []
     offset = None
+    start_offset = 0
     if include:
         offset = 0
-    elif start is not None:
+    elif start is not None and end is None:
         offset = len(start)
-    elif end is not None:
+    elif end is not None and start is None:
         offset = len(end)
+    elif start is not None and end is not None:
+        start_offset = len(start)
+        end_offset = len(end)
+        offset = end_offset
     for length in range(1, min(max_len + 1, ind+1)):
-        if end_exclude is not None and sent[ind - 1] in end_exclude:
+        if end_exclude is not None and sent[ind - 1 - offset] in end_exclude:
+            break
+        elif start_exclude is not None and sent[ind - length + start_offset] in start_exclude:
             break
         elif start is None and end is None:
             res = sent[ind - length: ind]
             if len(res) > 0:
                 ngrams.append(res)
-        elif start is not None and len(start) <= length and sent[ind-length: ind-length+len(start)] == start:
+        elif start is not None and end is None and len(start) <= length and sent[ind-length: ind-length+len(start)] == start:
             res = sent[ind - length + offset: ind]
             if len(res) > 0:
                 ngrams.append(res)
-        elif end is not None and len(end) <= length and sent[ind-len(end):ind] == end:
+        elif end is not None and start is None and len(end) <= length and sent[ind-len(end):ind] == end:
             res = sent[ind - length: ind - offset]
             if len(res) > 0:
                 ngrams.append(res)
+        elif start is not None and end is not None and len(start) <= length and len(end) <= length and sent[ind-length: ind-length+len(start)] == start and sent[ind-len(end):ind] == end:
+            res = sent[ind - length + start_offset: ind - end_offset]
+            if len(res) > 0:
+                ngrams.append(res)
+                # greedy match end token
+                break
     return ngrams
 
 
@@ -147,6 +173,15 @@ def filter_award_kwd(lst):
         lst.remove(lst[idx])
     return lst
 
+def filter_award(lst):
+    remove = []
+    for i, award in enumerate(lst):
+        if award[0] != 'best':
+            remove.append(i)
+    remove = sorted(remove, reverse=True)
+    for idx in remove:
+        lst.remove(lst[idx])
+    return lst
 
 def remove_duplicate_sublist(sorted_ca):
     removal = []
@@ -196,6 +231,93 @@ def remove_all_sublists(sorted_ca):
     for to_remove in removal:
         sorted_ca.remove(to_remove)
     return [x[0] for x in sorted_ca]
+
+
+def remove_strict_subsets(award_cand):
+    award_cand = _remove_strict_subsets(award_cand, limit=6)
+    award_cand = _remove_strict_subsets(award_cand, limit=12)
+    return award_cand
+
+
+def remove_subsets(award_cand):
+    award_cand = _remove_subsets(award_cand, limit=6)
+    award_cand = _remove_subsets(award_cand, limit=12)
+    return award_cand
+
+
+def _remove_strict_subsets(award_cand, limit=5):
+    removal = []
+    award_cand_rev = award_cand[::-1]
+    all_sets = [set(c) for c in award_cand_rev]
+    for i, c_set in enumerate(all_sets):
+        j = 0
+        found = False
+        while j < len(all_sets) and not found:
+            if i == j:
+                j += 1
+                continue
+            c_super = all_sets[j]
+            diff = c_super - c_set
+            if c_set < c_super and len('  '.join(diff)) < limit:
+                removal.append(len(award_cand) - i - 1)
+                found = True
+            j += 1
+    for idx in removal:
+        award_cand.remove(award_cand[idx])
+    return award_cand
+
+
+def _remove_subsets(award_cand, limit=5, synonym=True):
+    removal = []
+    award_cand_rev = award_cand[::-1]
+    all_sets = [set(c) for c in award_cand_rev]
+    for i, c_set in enumerate(all_sets):
+        j = 0
+        found = False
+        while j < len(all_sets) and not found:
+            if i == j:
+                j += 1
+                continue
+            c_super = all_sets[j]
+            if synonym and 'movie' in c_set:
+                syn = set.union(c_set - {'movie'}, {'motion', 'picture'})
+                if syn <= c_super and len('  '.join(c_super - syn)) < limit:
+                    removal.append(len(award_cand) - i - 1)
+                    found = True
+            elif synonym and 'film' in c_set:
+                syn = set.union(c_set - {'film'}, {'motion', 'picture'})
+                if syn <= c_super and len('  '.join(c_super - syn)) < limit:
+                    removal.append(len(award_cand) - i - 1)
+                    found = True
+            if not found and synonym and 'for' in c_set:
+                syn = set.union(c_set - {'for'}, {'in', 'a'})
+                if syn <= c_super and len('  '.join(c_super - syn)) < limit:
+                    removal.append(len(award_cand) - i - 1)
+                    found = True
+            if not found and ((c_set < c_super and len('  '.join(c_super - c_set)) < limit) or (c_set == c_super and i < j)):
+                removal.append(len(award_cand) - i - 1)
+                found = True
+            j += 1
+    for idx in removal:
+        award_cand.remove(award_cand[idx])
+    return award_cand
+
+
+def remove_kwd(award_cand):
+    removal = []
+    kwds = ['dressed']
+    for i, c in enumerate(award_cand[::-1]):
+        j = 0
+        found = False
+        while j < len(kwds) and not found:
+            k = kwds[j]
+            if k in c:
+                removal.append(len(award_cand) - i - 1)
+                found = True
+            j += 1
+    for idx in removal:
+        award_cand.remove(award_cand[idx])
+    return award_cand
 
 
 # per award
@@ -390,7 +512,8 @@ def disqualify_kwd(results):
                  'choices', 'cashew', 'arguably', 'person', 'boy', 'screenplay', 'go', 'up', 'call', 'baby', 'imagine',
                  'felt', 'spring', 'rides', 'bull', 'globe', 'the best', 'best', 'artist', 'soon', 'series', 'good',
                  'flip', 'saw', 'mom', 'dragons', 'downton', 'terrible', 'the show', 'lana', 'honest', 'day',
-                 'show', 'crazy', 'character', 'cast', 'incredible', 'know', 'viola', 'tuesday', 'golden', 'true']
+                 'show', 'crazy', 'character', 'cast', 'incredible', 'know', 'viola', 'tuesday', 'golden', 'true', '2 of',
+                 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     res = []
     for e in results:
         e_str = ' '.join(e[0])

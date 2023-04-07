@@ -27,7 +27,11 @@ def clean(data, indices):
             else:
                 # remove punctuation and case
                 new_sent.append(word.lower())
-        texts.append(unidecode.unidecode(re.sub(r'[^\w\s]', '', " ".join(new_sent))))
+        new_sent_str = re.sub(r'[^\w\s]', '', " ".join(new_sent))
+        new_sent_str = re.sub(r'miniseriestv', 'miniseries or tv', new_sent_str)
+        new_sent_str = re.sub(r'comedymusical', 'comedy or musical', new_sent_str)
+        new_sent_str = re.sub(r'televisionseries', 'tv series', new_sent_str)
+        texts.append(unidecode.unidecode(new_sent_str))
     return texts
 
 
