@@ -6,6 +6,10 @@ from copy import deepcopy
 
 
 def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=None, end_exclude=None, max_len=99):
+    # speed up search by anchoring first to start
+    if start is not None and not include and len(start) <= len(sent) - ind and sent[ind+1:ind+1+len(start)] == start:
+        ind += len(start)
+        start = None
     ngrams = []
     offset = None
     end_offset = 0
@@ -15,6 +19,8 @@ def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=No
         offset = len(start)
     elif end is not None and start is None:
         offset = len(end)
+    elif start is None and end is None:
+        offset = 0
     else:
         start_offset = len(start)
         end_offset = len(end)
@@ -46,6 +52,9 @@ def look_forward(sent, ind, start=None, end=None, include=True, start_exclude=No
 
 
 def look_backward(sent, ind, start=None, end=None, include=True, start_exclude=None, end_exclude=None, max_len=99):
+    if end is not None and not include and len(end) <= len(sent) - ind and sent[ind-len(end):ind] == end:
+        ind -= len(end)
+        end = None
     ngrams = []
     offset = None
     start_offset = 0
@@ -59,6 +68,8 @@ def look_backward(sent, ind, start=None, end=None, include=True, start_exclude=N
         start_offset = len(start)
         end_offset = len(end)
         offset = end_offset
+    else:
+        offset = 0
     for length in range(1, min(max_len + 1, ind+1)):
         if end_exclude is not None and sent[ind - 1 - offset] in end_exclude:
             break
