@@ -1,4 +1,4 @@
-from process import *
+from main import *
 
 '''Version 0.35'''
 

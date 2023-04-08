@@ -2,7 +2,15 @@ from data import *
 from utils import *
 import numpy as np
 import ray
-import sys
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Golden Globe Awards Info Extractor')
+    parser.add_argument('--year', type=str, default='2013', help='golden globes dataset year (2013/2015)')
+    parser.add_argument('--n_CPU', type=int, default=4, help='number of physical cores to use for Ray')
+    args = parser.parse_args()
+    return args
 
 
 @ray.remote
@@ -37,26 +45,6 @@ def extract_awards(data, indices):
     sents = [x.split() for x in data.iloc[range(*indices)]['text'].tolist()]
     for sent in sents:
         for i, word in enumerate(sent):
-            # best xxx goes to
-            if word == 'goes' and i+1 < len(sent) and sent[i+1] == 'to':
-                ca_set_awards += look_backward(sent, i, start=['best'])
-            # xxx won best xxx
-            elif word == 'won' and i > 0 and sent[i-1] == 'has':
-                ca_set_awards += look_forward(sent, i-1, start=['best'])
-            elif word == 'won':
-                ca_set_awards += look_forward(sent, i, start=['best'])
-            # best xxx - *winner
-            # elif word == '-':
-            #     ca_set_awards += look_backward(sent, i, start=['best'])
-    return ca_set_awards
-
-
-@ray.remote
-def extract_awards_alt(data, indices):
-    ca_set_awards = []
-    sents = [x.split() for x in data.iloc[range(*indices)]['text'].tolist()]
-    for sent in sents:
-        for i, word in enumerate(sent):
             if word == 'goes' and i+1 < len(sent) and sent[i+1] == 'to':
                 ca_set_awards += look_backward(sent, i+2, end=['goes', 'to'], start_exclude=['at', 'the', 'golden', 'globes', 'globe', 'for'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
             # xxx wins #goldenglobe for AWARD for role/movie
@@ -74,9 +62,7 @@ def extract_awards_alt(data, indices):
                 ca_set_awards += look_backward(sent, i+2, end=['awarded', 'to'], include=False, end_exclude=['is'])
             # winner for AWARD is xxx
             elif word == 'winner' and i+3 < len(sent) and sent[i+1] == 'for':
-                # TODO removed is
                 ca_set_awards += look_forward(sent, i-1, start=['winner', 'for'], end=['is'], end_exclude=['at', 'the', 'golden', 'globes', 'globe'], include=False)
-                #print(' '.join(sent))
             # someone presents AWARD to xxx
             elif word == 'presents' and i+2<len(sent) and sent[i+2] == 'to':
                 ca_set_awards += look_forward(sent, i-1, start=['presents'], end=['to'], include=False)
@@ -433,14 +419,14 @@ def process(data_len, data_ref, n_CPU=4):
     sorted_ca = remove_duplicate_sublist(sorted_ca)
     # remove all sub-lists, re-rank based on occurrence frequency in the full dataset
     ca = remove_all_sublists(sorted_ca)
-    if data_len < 500000:
+    if data_len < 200000:
         host_cand = ray_data_workers(rerank, combine_sort, n_CPU, data_len, data_ref, ca)
         hosts = filter_host_kwd(host_cand)
     else:
         hosts = ' '.join(ca[0]).split(' and ')
 
-    awards_raw = ray_data_workers(extract_awards_alt, collect_combine, n_CPU, data_len, data_ref)
-    if data_len < 500000:
+    awards_raw = ray_data_workers(extract_awards, collect_combine, n_CPU, data_len, data_ref)
+    if data_len < 200000:
         sorted_awards = unique_ngrams(awards_raw)[:200]
     else:
         sorted_awards = unique_ngrams(awards_raw)[:400]
@@ -459,7 +445,7 @@ def process(data_len, data_ref, n_CPU=4):
     order = np.argsort([x[2] for x in winner_grouped[:-1]])
     timestamps = [winner_grouped[i][2] for i in order]
 
-    if data_len < 500000:
+    if data_len < 200000:
         nominees_raw = ray_data_workers(extract_nominees, collect_combine, n_CPU, data_len, data_ref)
         nominees_unique = unique_ngrams_ts(nominees_raw, start=timestamps[0])
         nominees_ref = ray.put(nominees_unique)
@@ -471,7 +457,7 @@ def process(data_len, data_ref, n_CPU=4):
     nominees_ordered = [nominees[list(order).index(i)] for i in range(len(nominees))]
     nominees_filtered = ray_res_workers(disqualify_kwd, collect, nominees_ordered)
 
-    if data_len < 500000:
+    if data_len < 200000:
         nominees_dedup = ray_res_workers(remove_duplicate_sublist_str, collect, nominees_filtered)
         nominee_grouped = ray_res_workers(remove_dup_single, collect, nominees_dedup)
         nominee_grouped = ray_data_workers(rerank_nominees, rerank_combine, n_CPU, data_len, data_ref, nominee_grouped)
@@ -489,7 +475,7 @@ def process(data_len, data_ref, n_CPU=4):
         for idx in remove:
             noms.remove(noms[idx])
     nominees = [[nom[0] for nom in noms[:4]] for noms in nominee_grouped]
-    
+
     ts_diff = np.diff(timestamps)
     timestamps_mid = [int(timestamps[0] - ts_diff[0]/2)]
     for i, dt in enumerate(ts_diff):
@@ -524,18 +510,21 @@ def process(data_len, data_ref, n_CPU=4):
     full_award_lst = award_lst + [['cecil', 'b.', 'demille', 'award']]
     nominees.append([])
     presenters.append(demille_presenters)
-    eval_nominees(nominees, 2013, award_map_inv, full_award_lst)
-    eval_presenters(presenters, 2013, award_map_inv, full_award_lst)
+
+    # -------------------------------------------------------------------
+    # Eval functions for 2013/2015, use for debugging/eval only
+    #
+    # eval_nominees(nominees, 2015, award_map_inv, full_award_lst)
+    # eval_presenters(presenters, 2015, award_map_inv, full_award_lst)
+    # -------------------------------------------------------------------
     return hosts, award_cand, winners, nominees, presenters
 
 
 if __name__ == '__main__':
-    n_CPU = 4
+    args = parse_args()
+    n_CPU = args.n_CPU
+    year = args.year
     ray.init(num_cpus=n_CPU)
-    if len(sys.argv) > 1:
-        year = sys.argv[1]
-    else:
-        year = '2015'
     data = load(f'./gg{year}.json', n_CPU)
     data_len = len(data)
     data_ref = ray.put(data)

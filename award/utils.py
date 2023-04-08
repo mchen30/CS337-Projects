@@ -161,19 +161,6 @@ def filter_host_kwd(lst):
     return ' '.join(hosts).split(' and ')
 
 
-def filter_award_kwd(lst):
-    excl_kwds = ['show', 'performance', 'for', 'golden', 'globe', 'and']
-    remove = []
-    for i, award in enumerate(lst):
-        for word in award:
-            if word in excl_kwds:
-                remove.append(i)
-    remove = sorted(remove, reverse=True)
-    for idx in remove:
-        lst.remove(lst[idx])
-    return lst
-
-
 def filter_award_sorted(lst):
     remove = []
     for i, award in enumerate(lst):
@@ -184,16 +171,6 @@ def filter_award_sorted(lst):
         lst.remove(lst[idx])
     return lst
 
-
-def filter_award(lst):
-    remove = []
-    for i, award in enumerate(lst):
-        if award[0] != 'best' or len(award) <= 2:
-            remove.append(i)
-    remove = sorted(remove, reverse=True)
-    for idx in remove:
-        lst.remove(lst[idx])
-    return lst
 
 def remove_duplicate_sublist(sorted_ca):
     removal = []
@@ -246,7 +223,6 @@ def remove_all_sublists(sorted_ca):
 
 
 def remove_subsets_sorted(sorted_cand):
-    sorted_cand = _remove_subsets_sorted(sorted_cand, limit=5)
     sorted_cand = _remove_subsets_sorted(sorted_cand, limit=5)
     sorted_cand = _remove_subsets_sorted(sorted_cand, limit=10)
     return sorted_cand
@@ -325,23 +301,6 @@ def _remove_subsets_sorted(sorted_cand, limit=5, synonym=True):
     for idx in removal:
         sorted_cand.remove(sorted_cand[idx])
     return sorted(sorted_cand, key=lambda x: x[1], reverse=True)
-
-
-def remove_kwd(award_cand):
-    removal = []
-    kwds = ['dressed']
-    for i, c in enumerate(award_cand[::-1]):
-        j = 0
-        found = False
-        while j < len(kwds) and not found:
-            k = kwds[j]
-            if k in c:
-                removal.append(len(award_cand) - i - 1)
-                found = True
-            j += 1
-    for idx in removal:
-        award_cand.remove(award_cand[idx])
-    return award_cand
 
 
 # per award
@@ -883,10 +842,11 @@ def eval_nominees(nominees, year, award_map_inv, awards):
                 p_res[i].append([n, True]); true += 1; tot += 1
             else:
                 p_res[i].append([n, False]); tot += 1
-    print(f'Nominees extraction accuracy is {true / tot}')
+    print(f'Nominees extraction accuracy is {true / tot:.2%}')
+    # print(f'Full: {true}/{tot}')
     for i, r in enumerate(p_res):
         print(r)
-        print(nominees[i])
+        # print(nominees[i])
 
 
 # debugging only
@@ -902,7 +862,8 @@ def eval_presenters(presenters, year, award_map_inv, awards):
                 p_res[i].append([n, True]); true += 1; tot += 1
             else:
                 p_res[i].append([n, False]); tot += 1
-    print(f'Presenters extraction accuracy is {true / tot}')
+    print(f'Presenters extraction accuracy is {true / tot:.2%}')
+    # print(f'Full: {true}/{tot}')
     for i, r in enumerate(p_res):
         print(r)
-        print(presenters[i])
+        # print(presenters[i])
